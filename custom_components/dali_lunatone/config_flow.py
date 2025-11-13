@@ -1,0 +1,175 @@
+"""Config flow for Lunatone DALI-2 IoT integration."""
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+import voluptuous as vol
+
+from homeassistant import config_entries
+from homeassistant.const import CONF_HOST, CONF_PORT
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.data_entry_flow import FlowResult
+from homeassistant.exceptions import HomeAssistantError
+import homeassistant.helpers.config_validation as cv
+
+from .const import (
+    CONF_ENABLE_BACKGROUND_SCAN,
+    CONF_SCAN_INTERVAL,
+    CONF_SCAN_ON_SETUP,
+    DEFAULT_NAME,
+    DEFAULT_PORT,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+)
+from .lunatone_api import LunatoneClient
+
+_LOGGER = logging.getLogger(__name__)
+
+STEP_USER_DATA_SCHEMA = vol.Schema(
+    {
+        vol.Required(CONF_HOST): str,
+        vol.Required(CONF_PORT, default=DEFAULT_PORT): int,
+        vol.Optional(CONF_SCAN_ON_SETUP, default=True): bool,
+    }
+)
+
+
+async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
+    """Validate the user input allows us to connect.
+
+    Data has the keys from STEP_USER_DATA_SCHEMA with values provided by the user.
+    """
+    client = LunatoneClient(data[CONF_HOST], data[CONF_PORT])
+
+    try:
+        if not await client.connect():
+            raise CannotConnect
+
+        # Get device info for unique_id
+        device_info = client.device_info
+        await client.disconnect()
+
+        return {
+            "title": f"{DEFAULT_NAME} ({data[CONF_HOST]})",
+            "unique_id": str(device_info.get("device", {}).get("serial", data[CONF_HOST])),
+            "device_info": device_info,
+        }
+    except Exception as e:
+        _LOGGER.error("Error connecting to Lunatone: %s", e)
+        raise CannotConnect from e
+
+
+class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for Lunatone DALI-2 IoT."""
+
+    VERSION = 1
+
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle the initial step."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            try:
+                info = await validate_input(self.hass, user_input)
+            except CannotConnect:
+                errors["base"] = "cannot_connect"
+            except Exception:  # pylint: disable=broad-except
+                _LOGGER.exception("Unexpected exception")
+                errors["base"] = "unknown"
+            else:
+                # Set unique ID to prevent duplicate entries
+                await self.async_set_unique_id(info["unique_id"])
+                self._abort_if_unique_id_configured()
+
+                return self.async_create_entry(
+                    title=info["title"],
+                    data=user_input,
+                )
+
+        return self.async_show_form(
+            step_id="user",
+            data_schema=STEP_USER_DATA_SCHEMA,
+            errors=errors,
+        )
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> OptionsFlowHandler:
+        """Get the options flow for this handler."""
+        return OptionsFlowHandler()
+
+
+class OptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle options flow for the integration."""
+
+    def __init__(self) -> None:
+        """Initialize options flow."""
+        super().__init__()
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Manage the options."""
+        if user_input is not None:
+            # Check if user wants to trigger manual scan
+            if user_input.get("manual_scan"):
+                # Trigger manual scan service
+                await self.hass.services.async_call(
+                    DOMAIN,
+                    "rescan_devices",
+                    {},
+                    blocking=True,
+                )
+                # Show form again with success message
+                return self.async_show_form(
+                    step_id="init",
+                    data_schema=self._get_options_schema(),
+                    description_placeholders={"scan_status": "Manual scan completed!"},
+                )
+            return self.async_create_entry(title="", data=user_input)
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=self._get_options_schema(),
+        )
+
+    def _get_options_schema(self) -> vol.Schema:
+        """Get options schema."""
+        return vol.Schema(
+            {
+                vol.Optional(
+                    CONF_SCAN_ON_SETUP,
+                    default=self.config_entry.options.get(
+                        CONF_SCAN_ON_SETUP,
+                        self.config_entry.data.get(CONF_SCAN_ON_SETUP, True),
+                    ),
+                ): bool,
+                vol.Optional(
+                    CONF_ENABLE_BACKGROUND_SCAN,
+                    default=self.config_entry.options.get(
+                        CONF_ENABLE_BACKGROUND_SCAN,
+                        True,
+                    ),
+                ): bool,
+                vol.Optional(
+                    CONF_SCAN_INTERVAL,
+                    default=self.config_entry.options.get(
+                        CONF_SCAN_INTERVAL,
+                        DEFAULT_SCAN_INTERVAL,
+                    ),
+                ): vol.All(vol.Coerce(int), vol.Range(min=60, max=3600)),
+                vol.Optional(
+                    "manual_scan",
+                    default=False,
+                ): bool,
+            }
+        )
+
+
+class CannotConnect(HomeAssistantError):
+    """Error to indicate we cannot connect."""

@@ -1,0 +1,111 @@
+name: Bug Report
+description: Report a bug with the Lunatone DALI-2 IoT Gateway integration
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the information below to help us fix it.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of what the bug is.
+      placeholder: When I try to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: I expected the light to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: Instead, the light...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Go to...
+        2. Click on...
+        3. See error...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Integration Version
+      description: Which version of the integration are you using?
+      placeholder: e.g., 1.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant Version
+      description: Which version of Home Assistant are you running?
+      placeholder: e.g., 2024.11.0
+    validations:
+      required: true
+
+  - type: input
+    id: gateway_version
+    attributes:
+      label: Gateway Firmware Version
+      description: What firmware version is your Lunatone DALI-2 IoT Gateway running?
+      placeholder: e.g., 1.2.3
+
+  - type: dropdown
+    id: device_types
+    attributes:
+      label: Affected Device Types
+      description: Which types of devices are affected?
+      multiple: true
+      options:
+        - DALI Lights (DT6/DT7/DT8)
+        - Push Buttons (iT1)
+        - Switches (iT2)
+        - Occupancy Sensors (iT3)
+        - Light Sensors (iT4)
+        - Colour Sensors (iT5)
+        - General Purpose Sensors (iT6)
+        - Groups
+        - All devices
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Log Output
+      description: |
+        Please copy and paste any relevant log output. Enable debug logging with:
+        ```yaml
+        logger:
+          default: info
+          logs:
+            custom_components.dali_lunatone: debug
+        ```
+      render: text
+      placeholder: |
+        Paste your logs here...
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here (screenshots, configuration, etc.)

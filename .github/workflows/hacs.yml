@@ -1,0 +1,52 @@
+name: HACS Validation
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    name: HACS Validation
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Debug repository structure
+        run: |
+          echo "Workspace path: $GITHUB_WORKSPACE"
+          echo "Current directory: $(pwd)"
+          echo "Top-level listing:" && ls -al
+          echo "custom_components listing:" && ls -al custom_components || true
+          echo "Integration directory listing:" && ls -al custom_components/dali_lunatone || true
+          echo "manifest.json content:" && sed -n '1,120p' custom_components/dali_lunatone/manifest.json || true
+          echo "hacs.json content:" && sed -n '1,120p' hacs.json || true
+          python - <<'PY'
+import json, glob, os
+print('Python parse manifest:')
+mf = 'custom_components/dali_lunatone/manifest.json'
+try:
+    with open(mf) as f:
+        print(json.load(f))
+except Exception as e:
+    print('ERROR manifest', e)
+print('Python parse hacs.json:')
+try:
+    with open('hacs.json') as f:
+        print(json.load(f))
+except Exception as e:
+    print('ERROR hacs', e)
+print('Glob for manifest.json files:')
+print(glob.glob('**/manifest.json', recursive=True))
+print('Environment variables subset:')
+for k in ['GITHUB_WORKSPACE','RUNNER_OS','RUNNER_TEMP','RUNNER_TOOL_CACHE']:
+    print(k, os.getenv(k))
+PY
+
+      - name: HACS validation
+        uses: hacs/action@v2
+        with:
+          category: integration

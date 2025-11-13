@@ -1,0 +1,87 @@
+name: Validate
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    name: Validate Python and JSON
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Debug repository structure
+      run: |
+        echo "Workspace: $GITHUB_WORKSPACE"
+        echo "PWD: $(pwd)"
+        echo "Top-level listing:" && ls -al
+        echo "custom_components tree:" && ls -al custom_components || true
+        echo "Integration directory listing:" && ls -al custom_components/dali_lunatone || true
+        echo "manifest.json (first 120 lines):" && sed -n '1,120p' custom_components/dali_lunatone/manifest.json || true
+        echo "hacs.json:" && sed -n '1,120p' hacs.json || true
+        echo "strings.json (first 60 lines):" && sed -n '1,60p' custom_components/dali_lunatone/strings.json || true
+        echo "services.yaml (first 60 lines):" && sed -n '1,60p' custom_components/dali_lunatone/services.yaml || true
+        python - <<'PY'
+  import json, glob, os, yaml
+  print('Parse manifest.json:')
+  try:
+    print(json.load(open('custom_components/dali_lunatone/manifest.json')))
+  except Exception as e:
+    print('ERROR manifest', e)
+  print('Parse hacs.json:')
+  try:
+    print(json.load(open('hacs.json')))
+  except Exception as e:
+    print('ERROR hacs', e)
+  print('Glob manifest.json files:')
+  print(glob.glob('**/manifest.json', recursive=True))
+  print('Environment subset:')
+  for k in ['GITHUB_WORKSPACE','RUNNER_OS']:
+    print(k, os.getenv(k))
+  PY
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install websockets
+
+      - name: Validate Python syntax
+        run: |
+          python -m py_compile custom_components/dali_lunatone/*.py
+
+      - name: Validate manifest.json
+        run: |
+          python -c "import json; json.load(open('custom_components/dali_lunatone/manifest.json'))"
+
+      - name: Validate strings.json
+        run: |
+          python -c "import json; json.load(open('custom_components/dali_lunatone/strings.json'))"
+
+      - name: Validate services.yaml
+        run: |
+          pip install pyyaml
+          python -c "import yaml; yaml.safe_load(open('custom_components/dali_lunatone/services.yaml'))"
+
+      - name: Validate hacs.json
+        run: |
+          python -c "import json; json.load(open('hacs.json'))"
+
+  hassfest:
+    runs-on: ubuntu-latest
+    name: Hassfest Validation
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Hassfest validation
+        uses: home-assistant/actions/hassfest@master

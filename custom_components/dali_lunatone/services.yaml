@@ -1,0 +1,54 @@
+# Services for Lunatone DALI-2 IoT integration
+
+rescan_devices:
+  name: Rescan DALI devices
+  description: Scan the DALI bus for new, changed, or removed devices.
+  fields: {}
+
+step_up:
+  name: Step brightness up
+  description: Increase brightness by one step (approx 4%).
+  target:
+    entity:
+      integration: dali_lunatone
+      domain: light
+
+step_down:
+  name: Step brightness down
+  description: Decrease brightness by one step (approx 4%).
+  target:
+    entity:
+      integration: dali_lunatone
+      domain: light
+
+recall_max:
+  name: Recall maximum level
+  description: Turn light on to maximum brightness.
+  target:
+    entity:
+      integration: dali_lunatone
+      domain: light
+
+set_feedback_led:
+  name: Set feedback LED
+  description: Control the indicator LED on a DALI2 button/sensor instance.
+  fields:
+    entity_id:
+      name: Entity ID
+      description: The binary sensor entity ID representing the button/sensor instance.
+      required: true
+      example: "binary_sensor.dali2_0_button_0"
+      selector:
+        entity:
+          integration: dali_lunatone
+          domain: binary_sensor
+    state:
+      name: LED State
+      description: Turn the feedback LED on or off.
+      required: true
+      example: "on"
+      selector:
+        select:
+          options:
+            - "on"
+            - "off"

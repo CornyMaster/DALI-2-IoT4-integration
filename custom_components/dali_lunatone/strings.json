@@ -1,0 +1,46 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to Lunatone DALI-2 IoT",
+        "description": "Enter the connection details for your Lunatone DALI-2 IoT interface.",
+        "data": {
+          "host": "IP Address or Hostname",
+          "port": "Port",
+          "scan_on_setup": "Scan for changes on startup"
+        },
+        "data_description": {
+          "scan_on_setup": "Automatically scan for devices when first setting up the integration"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the Lunatone device. Please check the IP address and port.",
+      "unknown": "An unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "This Lunatone device is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Lunatone DALI Options",
+        "description": "Configure scanning and device detection settings.",
+        "data": {
+          "scan_on_setup": "Scan for changes on startup",
+          "enable_background_scan": "Enable background scanning",
+          "scan_interval": "Background scan interval (seconds)",
+          "manual_scan": "Trigger manual scan now"
+        },
+        "data_description": {
+          "scan_on_setup": "Automatically scan for new, changed, or removed devices when Home Assistant starts",
+          "enable_background_scan": "Periodically scan for device changes in the background",
+          "scan_interval": "How often to scan for device changes (60-3600 seconds)",
+          "manual_scan": "Check this box and save to immediately scan for devices"
+        }
+      }
+    }
+  }
+}
+

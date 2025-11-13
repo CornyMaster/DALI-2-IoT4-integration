@@ -1,0 +1,13 @@
+{
+  "domain": "dali_lunatone",
+  "name": "Lunatone DALI-2 IoT",
+  "codeowners": ["@Martsola"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/Martsola/dali-lunatone-integration",
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/Martsola/dali-lunatone-integration/issues",
+  "requirements": ["websockets==12.0"],
+  "version": "0.1.1"
+}
