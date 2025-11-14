@@ -1,11 +1,11 @@
 # Lunatone DALI-2 IoT Gateway - Home Assistant Integration
 
-[![GitHub Release](https://img.shields.io/github/release/martsola/dali-lunatone-integration.svg?style=flat-square)](https://github.com/martsola/dali-lunatone-integration/releases)
-[![License](https://img.shields.io/github/license/martsola/dali-lunatone-integration.svg?style=flat-square)](LICENSE)
+[![GitHub Release](https://img.shields.io/github/release/Martsola/dali-lunatone-integration.svg?style=flat-square)](https://github.com/Martsola/dali-lunatone-integration/releases)
+[![License](https://img.shields.io/github/license/Martsola/dali-lunatone-integration.svg?style=flat-square)](LICENSE)
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=flat-square)](https://github.com/hacs/integration)
-[![Validate](https://github.com/martsola/dali-lunatone-integration/actions/workflows/validate.yml/badge.svg)](https://github.com/martsola/dali-lunatone-integration/actions/workflows/validate.yml)
+[![Validate](https://github.com/Martsola/dali-lunatone-integration/actions/workflows/validate.yml/badge.svg)](https://github.com/Martsola/dali-lunatone-integration/actions/workflows/validate.yml)
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=martsola&repository=dali-lunatone-integration&category=integration)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Martsola&repository=dali-lunatone-integration&category=integration)
 
 A custom Home Assistant integration for controlling the Lunatone DALI-2 IoT Gateway via WebSocket.
 
