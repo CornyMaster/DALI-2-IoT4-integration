@@ -22,28 +22,8 @@ jobs:
           echo "Top-level listing:" && ls -al
           echo "custom_components tree:" && ls -al custom_components || true
           echo "Integration directory listing:" && ls -al custom_components/dali_lunatone || true
-          echo "manifest.json (first 120 lines):" && sed -n '1,120p' custom_components/dali_lunatone/manifest.json || true
-          echo "hacs.json:" && sed -n '1,120p' hacs.json || true
-          echo "strings.json (first 60 lines):" && sed -n '1,60p' custom_components/dali_lunatone/strings.json || true
-          echo "services.yaml (first 60 lines):" && sed -n '1,60p' custom_components/dali_lunatone/services.yaml || true
-          python - <<'PY'
-            import json, glob, os, yaml
-            print('Parse manifest.json:')
-            try:
-              print(json.load(open('custom_components/dali_lunatone/manifest.json')))
-            except Exception as e:
-              print('ERROR manifest', e)
-            print('Parse hacs.json:')
-            try:
-              print(json.load(open('hacs.json')))
-            except Exception as e:
-              print('ERROR hacs', e)
-            print('Glob manifest.json files:')
-            print(glob.glob('**/manifest.json', recursive=True))
-            print('Environment subset:')
-            for k in ['GITHUB_WORKSPACE','RUNNER_OS']:
-              print(k, os.getenv(k))
-          PY
+          echo "manifest.json:" && cat custom_components/dali_lunatone/manifest.json || true
+          echo "hacs.json:" && cat hacs.json || true
 
       - name: Set up Python
         uses: actions/setup-python@v5
