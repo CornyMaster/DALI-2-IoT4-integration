@@ -1,7 +1,7 @@
 # Lunatone DALI-2 IoT Gateway - Home Assistant Integration
 
 [![GitHub Release](https://img.shields.io/github/release/Martsola/dali-lunatone-integration.svg?style=flat-square)](https://github.com/Martsola/dali-lunatone-integration/releases)
-[![License](https://img.shields.io/github/license/Martsola/dali-lunatone-integration.svg?style=flat-square)](LICENSE)
+[![License](https://img.shields.io/github/license/Martsola/dali-lunatone-integration.svg?style=flat-square)](https://github.com/Martsola/dali-lunatone-integration/blob/main/LICENSE)
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=flat-square)](https://github.com/hacs/integration)
 [![Validate](https://github.com/Martsola/dali-lunatone-integration/actions/workflows/validate.yml/badge.svg)](https://github.com/Martsola/dali-lunatone-integration/actions/workflows/validate.yml)
 
