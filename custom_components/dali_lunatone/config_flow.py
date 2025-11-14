@@ -14,13 +14,15 @@ from homeassistant.exceptions import HomeAssistantError
 import homeassistant.helpers.config_validation as cv
 
 from .const import (
-    CONF_ENABLE_BACKGROUND_SCAN,
-    CONF_SCAN_INTERVAL,
-    CONF_SCAN_ON_SETUP,
+    CONF_BACKGROUND_STATUS_POLLING,
+    CONF_POLLING_INTERVAL,
+    CONF_SCAN_NEW_DEVICES_ON_STARTUP,
     DEFAULT_NAME,
+    DEFAULT_POLLING_INTERVAL,
     DEFAULT_PORT,
-    DEFAULT_SCAN_INTERVAL,
     DOMAIN,
+    MAX_POLLING_INTERVAL,
+    MIN_POLLING_INTERVAL,
 )
 from .lunatone_api import LunatoneClient
 
@@ -30,7 +32,6 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_HOST): str,
         vol.Required(CONF_PORT, default=DEFAULT_PORT): int,
-        vol.Optional(CONF_SCAN_ON_SETUP, default=True): bool,
     }
 )
 
@@ -116,21 +117,6 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
     ) -> FlowResult:
         """Manage the options."""
         if user_input is not None:
-            # Check if user wants to trigger manual scan
-            if user_input.get("manual_scan"):
-                # Trigger manual scan service
-                await self.hass.services.async_call(
-                    DOMAIN,
-                    "rescan_devices",
-                    {},
-                    blocking=True,
-                )
-                # Show form again with success message
-                return self.async_show_form(
-                    step_id="init",
-                    data_schema=self._get_options_schema(),
-                    description_placeholders={"scan_status": "Manual scan completed!"},
-                )
             return self.async_create_entry(title="", data=user_input)
 
         return self.async_show_form(
@@ -143,29 +129,25 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         return vol.Schema(
             {
                 vol.Optional(
-                    CONF_SCAN_ON_SETUP,
+                    CONF_BACKGROUND_STATUS_POLLING,
                     default=self.config_entry.options.get(
-                        CONF_SCAN_ON_SETUP,
-                        self.config_entry.data.get(CONF_SCAN_ON_SETUP, True),
+                        CONF_BACKGROUND_STATUS_POLLING,
+                        False,
                     ),
                 ): bool,
                 vol.Optional(
-                    CONF_ENABLE_BACKGROUND_SCAN,
+                    CONF_POLLING_INTERVAL,
                     default=self.config_entry.options.get(
-                        CONF_ENABLE_BACKGROUND_SCAN,
-                        True,
+                        CONF_POLLING_INTERVAL,
+                        DEFAULT_POLLING_INTERVAL,
                     ),
-                ): bool,
+                ): vol.All(vol.Coerce(int), vol.Range(min=MIN_POLLING_INTERVAL, max=MAX_POLLING_INTERVAL)),
                 vol.Optional(
-                    CONF_SCAN_INTERVAL,
+                    CONF_SCAN_NEW_DEVICES_ON_STARTUP,
                     default=self.config_entry.options.get(
-                        CONF_SCAN_INTERVAL,
-                        DEFAULT_SCAN_INTERVAL,
+                        CONF_SCAN_NEW_DEVICES_ON_STARTUP,
+                        False,
                     ),
-                ): vol.All(vol.Coerce(int), vol.Range(min=60, max=3600)),
-                vol.Optional(
-                    "manual_scan",
-                    default=False,
                 ): bool,
             }
         )

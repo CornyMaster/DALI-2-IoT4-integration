@@ -11,10 +11,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT, EVENT_HOMEASSISTANT_STARTED, Platform
 from homeassistant.core import CoreState, HomeAssistant, ServiceCall
 from homeassistant.exceptions import ConfigEntryNotReady
-from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import config_validation as cv, device_registry as dr
 
 from .const import (
-    CONF_SCAN_ON_SETUP,
+    CONF_SCAN_NEW_DEVICES_ON_STARTUP,
     DATA_CLIENT,
     DATA_COORDINATOR,
     DOMAIN,
@@ -51,17 +51,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Fetch initial data
     await coordinator.async_config_entry_first_refresh()
 
-    # Check if we should scan on first setup
-    scan_on_setup = entry.options.get(
-        CONF_SCAN_ON_SETUP,
-        entry.data.get(CONF_SCAN_ON_SETUP, True)
-    )
+    # Check if we should scan on startup (system option, default False)
+    scan_on_startup = entry.options.get(CONF_SCAN_NEW_DEVICES_ON_STARTUP, False)
     
-    # Only scan if enabled and no devices in storage
-    if scan_on_setup and not coordinator.data:
-        _LOGGER.info("No stored devices found, performing initial scan")
+    if scan_on_startup:
+        _LOGGER.info("Scan on startup enabled, performing device scan")
         await coordinator.async_rescan_devices()
-    elif coordinator.data:
+    elif not coordinator.data:
+        _LOGGER.warning("No stored devices found. Enable 'Scan new devices on startup' in options or use the Manual Scan button")
+    else:
         _LOGGER.info("Loaded %d devices from storage", len(coordinator.data))
 
     # Store coordinator and client
@@ -70,6 +68,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         DATA_CLIENT: client,
         DATA_COORDINATOR: coordinator,
     }
+
+    # Register the gateway device
+    device_registry = dr.async_get(hass)
+    gateway_info = client.device_info if client.device_info else {}
+    device_registry.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, entry.entry_id)},
+        name=entry.title,
+        manufacturer="Lunatone",
+        model="DALI-2 IoT Gateway",
+        sw_version=gateway_info.get("version", "Unknown"),
+        configuration_url=f"http://{host}:{port}",
+    )
 
     # Set up platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

@@ -2,17 +2,19 @@
 from typing import Final
 
 DOMAIN: Final = "dali_lunatone"
-PLATFORMS: Final = ["light", "binary_sensor", "sensor"]
+PLATFORMS: Final = ["light", "binary_sensor", "sensor", "button"]
 
 # Configuration
 CONF_HOST: Final = "host"
 CONF_PORT: Final = "port"
-CONF_SCAN_ON_SETUP: Final = "scan_on_setup"
-CONF_SCAN_INTERVAL: Final = "scan_interval"
-CONF_ENABLE_BACKGROUND_SCAN: Final = "enable_background_scan"
+CONF_BACKGROUND_STATUS_POLLING: Final = "background_status_polling"
+CONF_POLLING_INTERVAL: Final = "polling_interval"
+CONF_SCAN_NEW_DEVICES_ON_STARTUP: Final = "scan_new_devices_on_startup"
 DEFAULT_PORT: Final = 80
 DEFAULT_NAME: Final = "Lunatone DALI"
-DEFAULT_SCAN_INTERVAL: Final = 900  # 15 minutes
+DEFAULT_POLLING_INTERVAL: Final = 1800  # 30 minutes in seconds
+MIN_POLLING_INTERVAL: Final = 300  # 5 minutes in seconds
+MAX_POLLING_INTERVAL: Final = 86400  # 24 hours in seconds
 
 # Device types
 DALI_DEVICE_TYPES: Final = {
@@ -126,7 +128,6 @@ MIN_MIREDS: Final = 153  # ~6500K
 MAX_MIREDS: Final = 370  # ~2700K
 
 # Update intervals
-SCAN_INTERVAL_SECONDS: Final = 30  # Brightness polling interval
 DEVICE_SCAN_INTERVAL: Final = 300  # Device discovery interval (5 minutes)
 
 # Connection settings

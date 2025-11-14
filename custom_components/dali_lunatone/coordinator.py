@@ -9,7 +9,7 @@ from homeassistant.components import persistent_notification
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import CONF_ENABLE_BACKGROUND_SCAN, CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL, DOMAIN, SCAN_INTERVAL_SECONDS
+from .const import CONF_BACKGROUND_STATUS_POLLING, CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL, DOMAIN
 from .lunatone_api import DaliDevice, LunatoneClient
 from .storage import DeviceStorage
 
@@ -21,22 +21,22 @@ class LunatoneCoordinator(DataUpdateCoordinator[dict[tuple[str, int], DaliDevice
 
     def __init__(self, hass: HomeAssistant, client: LunatoneClient, entry_id: str, config_entry: Any) -> None:
         """Initialize coordinator."""
-        # Get scan interval from options or use default
-        scan_interval = config_entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
-        enable_background_scan = config_entry.options.get(CONF_ENABLE_BACKGROUND_SCAN, True)
+        # Get polling settings from options
+        background_polling = config_entry.options.get(CONF_BACKGROUND_STATUS_POLLING, False)
+        polling_interval = config_entry.options.get(CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL)
         
+        # Only set update_interval if background polling is enabled
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(seconds=SCAN_INTERVAL_SECONDS) if enable_background_scan else None,
+            update_interval=timedelta(seconds=polling_interval) if background_polling else None,
         )
         self.client = client
         self.storage = DeviceStorage(hass, entry_id)
         self._devices_loaded = False
-        self._background_scan_task = None
-        self._scan_interval = scan_interval
-        self._enable_background_scan = enable_background_scan
+        self._background_polling = background_polling
+        self._polling_interval = polling_interval
         self._last_full_scan = 0.0  # Timestamp of last full state scan
         self._led_states: dict[tuple[int, int], bool] = {}  # (address, instance) -> is_on
         
@@ -64,14 +64,16 @@ class LunatoneCoordinator(DataUpdateCoordinator[dict[tuple[str, int], DaliDevice
                 
                 self._devices_loaded = True
 
-            # Check if we should do a full state scan based on configured interval
-            import time
-            current_time = time.time()
-            if current_time - self._last_full_scan >= self._scan_interval:
-                if self.client.devices:
-                    _LOGGER.debug("Performing periodic state scan (interval: %ds)", self._scan_interval)
-                    await self.client.update_device_states()
-                    self._last_full_scan = current_time
+            # Check if we should do a full state scan based on configured polling interval
+            # Only poll if background polling is enabled
+            if self._background_polling:
+                import time
+                current_time = time.time()
+                if current_time - self._last_full_scan >= self._polling_interval:
+                    if self.client.devices:
+                        _LOGGER.debug("Performing periodic state scan (interval: %ds)", self._polling_interval)
+                        await self.client.update_device_states()
+                        self._last_full_scan = current_time
 
             return self.client.devices
 

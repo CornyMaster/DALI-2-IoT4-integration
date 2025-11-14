@@ -6,11 +6,7 @@
         "description": "Enter the connection details for your Lunatone DALI-2 IoT interface.",
         "data": {
           "host": "IP Address or Hostname",
-          "port": "Port",
-          "scan_on_setup": "Scan for changes on startup"
-        },
-        "data_description": {
-          "scan_on_setup": "Automatically scan for devices when first setting up the integration"
+          "port": "Port"
         }
       }
     },
@@ -25,19 +21,17 @@
   "options": {
     "step": {
       "init": {
-        "title": "Lunatone DALI Options",
-        "description": "Configure scanning and device detection settings.",
+        "title": "Lunatone DALI-2 IoT Options",
+        "description": "Configure device scanning and polling behavior.",
         "data": {
-          "scan_on_setup": "Scan for changes on startup",
-          "enable_background_scan": "Enable background scanning",
-          "scan_interval": "Background scan interval (seconds)",
-          "manual_scan": "Trigger manual scan now"
+          "background_status_polling": "Enable background status polling",
+          "polling_interval": "Polling interval (seconds)",
+          "scan_new_devices_on_startup": "Scan for new devices on startup"
         },
         "data_description": {
-          "scan_on_setup": "Automatically scan for new, changed, or removed devices when Home Assistant starts",
-          "enable_background_scan": "Periodically scan for device changes in the background",
-          "scan_interval": "How often to scan for device changes (60-3600 seconds)",
-          "manual_scan": "Check this box and save to immediately scan for devices"
+          "background_status_polling": "Automatically poll device states in the background. Device state changes from physical buttons are detected in real-time via WebSocket regardless of this setting.",
+          "polling_interval": "How often to poll device states when background polling is enabled (300-86400 seconds, default 1800 = 30 minutes). Only applies if background polling is enabled.",
+          "scan_new_devices_on_startup": "Automatically scan for new, changed, or removed devices when Home Assistant starts. Use the Manual Scan button to discover devices on demand."
         }
       }
     }

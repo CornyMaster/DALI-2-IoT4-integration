@@ -107,35 +107,71 @@ For iT1 (Push Buttons) and iT2 (Switches), the following event types are detecte
 
 ## Configuration
 
-### Through UI (Recommended)
+### Initial Setup
 
 1. Navigate to **Settings → Devices & Services**
 2. Click **Add Integration**
 3. Search for **Lunatone DALI-2 IoT**
-3. Enter:
+4. Enter:
    - **IP Address**: Your Lunatone device IP address
    - **Port**: WebSocket port (default: `80`)
 5. Click **Submit**
 
 The integration will:
-- Connect to the Lunatone device
-- Scan for DALI and DALI2 devices on the bus
-- Create light entities for all discovered DALI devices
-- Create binary sensor entities for DALI2 pushbuttons and occupancy sensors
-- Create sensor entities for DALI2 light sensors
-- Start monitoring and polling for state updates
+- Connect to the Lunatone device via WebSocket
+- Load previously discovered devices from storage
+- Start real-time monitoring of the DALI bus
+- Create entities for all devices
 
 ### Configuration Options
 
-After initial setup, you can configure the integration:
+After initial setup, configure the integration behavior:
 
 1. Navigate to **Settings → Devices & Services**
-2. Find **Lunatone DALI-2 IoT** and click **Configure**
+2. Find **Lunatone DALI-2 IoT** and click **Configure** (or **Options**)
 3. Available options:
-   - **Scan on Setup**: Enable/disable full device scan on startup (default: enabled)
-   - **Scan Interval**: How often to query DALI bus for device states (60-3600 seconds, default: 900 seconds)
 
-**Note**: The coordinator updates periodically for responsiveness, but only queries the DALI bus at the configured scan interval to reduce bus traffic.
+#### Background Status Polling
+- **Type**: Toggle (on/off)
+- **Default**: Off (disabled)
+- **Description**: When enabled, the integration periodically polls all device states at the configured interval. When disabled, device states are only updated through real-time WebSocket events (button presses, manual commands) and the Manual Scan button.
+- **Recommendation**: Keep disabled unless you need scheduled state verification. Real-time WebSocket monitoring handles most updates automatically.
+
+#### Polling Interval
+- **Type**: Number (seconds)
+- **Range**: 300-86400 (5 minutes to 24 hours)
+- **Default**: 1800 (30 minutes)
+- **Description**: How often to poll device states when background polling is enabled. Only applies if "Background status polling" is turned on.
+- **Note**: This does not affect real-time event monitoring, which always operates immediately via WebSocket.
+
+#### Scan New Devices on Startup
+- **Type**: Toggle (on/off)
+- **Default**: Off (disabled)
+- **Description**: When enabled, the integration automatically scans the DALI bus for new, changed, or removed devices every time Home Assistant starts. When disabled, the integration loads devices from storage and you can manually trigger scans using the Manual Scan button.
+- **Recommendation**: Enable if you frequently add/remove devices. Otherwise, keep disabled and use Manual Scan when needed.
+
+#### Activate New Device Scanning Now
+- **Type**: Toggle (on/off)
+- **Default**: Off (disabled)
+- **Description**: Enable this option and click Submit to immediately scan the DALI bus for devices. The scan will run once and this option automatically resets to off after completion.
+- **Alternative**: You can also use the **Manual Scan** button entity for the same functionality.
+
+### Manual Scan Button
+
+A button entity is created for each gateway: `button.lunatone_dali_[ip]_manual_scan`
+
+- **Purpose**: Manually trigger a full device scan
+- **Use Case**: Discovery of new devices, verification of removed devices
+- **Location**: Available in the device page or entities list
+
+### System Options
+
+In addition to the integration-specific options above, Home Assistant provides standard system options (accessed via **... → System Options**):
+
+- **Enable newly added entities**: Automatically enable entities for newly discovered devices
+- **Enable polling for changes**: Use Home Assistant's standard polling mechanism (note: this integration uses WebSocket for real-time updates, so HA polling is typically not needed)
+
+**Note**: The integration's "Background status polling" option is separate from Home Assistant's system-level polling option.
 
 ## Usage
 
