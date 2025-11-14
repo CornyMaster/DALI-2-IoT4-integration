@@ -16,8 +16,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Debug repository structure
-      run: |
-        echo "Workspace: $GITHUB_WORKSPACE"
+        run: |
+          echo "Workspace: $GITHUB_WORKSPACE"
         echo "PWD: $(pwd)"
         echo "Top-level listing:" && ls -al
         echo "custom_components tree:" && ls -al custom_components || true
