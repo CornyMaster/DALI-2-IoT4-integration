@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3-beta] - 2026-02-11
+
+### Fixed
+- **Critical: DALI-2 push button event decoding** - Event info byte was incorrectly parsed by masking lower 3 bits (`& 0x07`), but per IEC 62386-301 the full byte value uniquely identifies the event type
+- `long_press_stop` (value 12) was incorrectly decoded as `long_press_start` — making it impossible to detect button release after long press
+- `double_press` (value 5), `long_press_start` (value 9), `long_press_repeat` (value 11), and `button_free` (value 14) were all mapped to wrong event names
+- Removed incorrect `event_counter` field based on wrong assumption of bit splitting
+- Button state now correctly reflects only active press states (pressed, long_press_start, long_press_repeat)
+
+### Changed
+- `BUTTON_EVENT_TYPES` dictionary updated to use correct IEC 62386-301 event info values (0, 1, 2, 5, 9, 11, 12, 14, 15 instead of 0-7)
+- iT1 (Push Button) and iT2 (Absolute Input Device/Switch) event parsing both corrected
+
 ## [0.1.1-beta] - 2025-11-13
 
 ### Added
@@ -105,5 +118,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Push button (iT1) state now correctly returns to "off" after short press events
 - Improved binary sensor state handling for momentary vs maintained buttons
 
-[Unreleased]: https://github.com/martsola/dali-lunatone-integration/compare/v0.1.0-beta...HEAD
+[Unreleased]: https://github.com/martsola/dali-lunatone-integration/compare/v0.1.3-beta...HEAD
+[0.1.3-beta]: https://github.com/martsola/dali-lunatone-integration/compare/v0.1.2-beta...v0.1.3-beta
 [0.1.0-beta]: https://github.com/martsola/dali-lunatone-integration/releases/tag/v0.1.0-beta

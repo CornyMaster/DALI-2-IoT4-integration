@@ -108,16 +108,19 @@ FEEDBACK_LED_ON: Final = 0x10
 FEEDBACK_LED_OFF: Final = 0x11
 
 # DALI2 Button Event Types (for iT1 Push Buttons)
-# Based on event filter bits specification
+# Per IEC 62386-301: the event information uniquely defines the event.
+# There is no separate counter/timing field - the full 10-bit value IS the event.
+# Reference: python-dali library (sde1000/python-dali) pushbutton.py
 BUTTON_EVENT_TYPES: Final = {
-    0: "button_released",       # Bit 0: Button released
-    1: "button_pressed",        # Bit 1: Button pressed
-    2: "short_press",           # Bit 2: Short press
-    3: "double_press",          # Bit 3: Double press
-    4: "long_press_start",      # Bit 4: Long press start
-    5: "long_press_repeat",     # Bit 5: Long press repeat
-    6: "long_press_stop",       # Bit 6: Long press stop
-    7: "button_stuck_free",     # Bit 7: Button stuck/free
+    0: "button_released",            # Button released (event_info=0b0000000000)
+    1: "button_pressed",             # Button pressed (event_info=0b0000000001)
+    2: "short_press",                # Short press completed (event_info=0b0000000010)
+    5: "double_press",               # Double press detected (event_info=0b0000000101)
+    9: "long_press_start",           # Long press threshold reached (event_info=0b0000001001)
+    11: "long_press_repeat",         # Long press ongoing, periodic repeat (event_info=0b0000001011)
+    12: "long_press_stop",           # Button released after long press (event_info=0b0000001100)
+    14: "button_free",               # Button was stuck and is now released (event_info=0b0000001110)
+    15: "button_stuck",              # Button stuck detection (event_info=0b0000001111)
 }
 
 # Color temperature range (in Kelvin)

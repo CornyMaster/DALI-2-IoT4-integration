@@ -1,7 +1,7 @@
 #!/bin/bash
 # Create installation package for HassOS deployment
 
-VERSION="0.1.2-beta"
+VERSION="0.1.3-beta"
 
 echo "Creating release package for version ${VERSION}..."
 

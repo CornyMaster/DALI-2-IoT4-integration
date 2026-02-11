@@ -486,30 +486,34 @@ class LunatoneClient:
                 _LOGGER.error("DALI2 device at address %d has empty instances dict!", dali_address)
                 return
             
-            # Get instance info (instances stored with string keys)
-            instance_str = str(instance)
-                
-            if instance_str not in device.instances:
-                _LOGGER.debug("DALI2 event for unknown instance: address=%d, instance=%d", dali_address, instance)
+            # Get instance info (instances stored with integer keys)
+            if instance not in device.instances:
+                _LOGGER.debug("DALI2 event for unknown instance: address=%d, instance=%d, known instances=%s", dali_address, instance, list(device.instances.keys()))
                 return
 
-            instance_info = device.instances[instance_str]
+            instance_info = device.instances[instance]
             instance_type = instance_info.get("type", 0)
 
             # Update instance state based on type
             if instance_type == 1:
-                # iT1: Push Button - event filter bits 0-7
-                # State is True only during actual press (1) and long press (4,5)
-                # Short press (2), double press (3), and release (0,6) are momentary events
-                instance_info["state"] = event_data in (1, 4, 5)
+                # iT1: Push Button - Per IEC 62386-301, the event information
+                # uniquely defines the event. No separate counter/timing field.
+                # The full byte value IS the event type identifier.
+                # Values: 0=released, 1=pressed, 2=short_press, 5=double_press,
+                #   9=long_press_start, 11=long_press_repeat, 12=long_press_stop,
+                #   14=button_free, 15=button_stuck
+                event_type = event_data  # Full byte is the event identifier
+                # State is True only during active press states
+                instance_info["state"] = event_type in (1, 9, 11)
                 instance_info["event_data"] = event_data
-                instance_info["event_type"] = self._decode_button_event(event_data)
+                instance_info["event_type"] = self._decode_button_event(event_type)
             elif instance_type == 2:
-                # iT2: Absolute Input Device/Switch - maintains state
-                # Pressed states: 1(pressed), 2(short), 3(double), 4(long start), 5(long repeat)
-                instance_info["state"] = event_data in (1, 2, 3, 4, 5)
+                # iT2: Absolute Input Device/Switch - same event info structure
+                event_type = event_data  # Full byte is the event identifier
+                # Pressed states: 1(pressed), 9(long start), 11(long repeat)
+                instance_info["state"] = event_type in (1, 9, 11)
                 instance_info["event_data"] = event_data
-                instance_info["event_type"] = self._decode_button_event(event_data)
+                instance_info["event_type"] = self._decode_button_event(event_type)
             elif instance_type == 3:
                 # iT3: Occupancy Sensor
                 bits21 = (event_data >> 1) & 0x03
@@ -533,21 +537,25 @@ class LunatoneClient:
             _LOGGER.error("Error in _handle_dali2_event: %s", e, exc_info=True)
 
 
-    def _decode_button_event(self, event_data: int) -> str:
-        """Decode pushbutton event type based on event filter bits.
+    def _decode_button_event(self, event_type: int) -> str:
+        """Decode pushbutton event type from IEC 62386-301 event info.
         
-        Event filter bits:
-        0 - Button released
-        1 - Button pressed
-        2 - Short press
-        3 - Double press
-        4 - Long press start
-        5 - Long press repeat
-        6 - Long press stop
-        7 - Button stuck/free
+        Per the DALI-2 standard, the event information uniquely defines
+        the event for push buttons - there is no separate counter field.
+        
+        Event info values:
+        0  - Button released
+        1  - Button pressed
+        2  - Short press
+        5  - Double press
+        9  - Long press start
+        11 - Long press repeat
+        12 - Long press stop
+        14 - Button free (was stuck, now released)
+        15 - Button stuck
         """
         from .const import BUTTON_EVENT_TYPES
-        return BUTTON_EVENT_TYPES.get(event_data, f"unknown_event_{event_data}")
+        return BUTTON_EVENT_TYPES.get(event_type, f"unknown_event_{event_type}")
 
     async def _handle_dali_command(self, data: dict[str, Any]) -> None:
         """Handle DALI command notifications from the bus (external device control)."""
