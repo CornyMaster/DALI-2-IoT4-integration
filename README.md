@@ -194,14 +194,20 @@ DALI2 pushbuttons, switches, and occupancy sensors appear as binary sensors:
 - **Switches (iT2)**: `binary_sensor.dali2_[address]_switch_[number]`
 - **Occupancy (iT3)**: `binary_sensor.dali2_[address]_occupancy`
 
+#### Binary Sensor Behavior
+
+**Momentary Events**: `short_press` and `double_press` events briefly set the binary sensor state to **on** (True), then automatically reset to **off** (False) after 0.5 seconds. This allows automations to trigger on state changes without the sensor staying stuck on.
+
+**Sustained Events**: `button_pressed`, `long_press_start`, and `long_press_repeat` keep the binary sensor **on** until a corresponding release or stop event is received.
+
 #### Binary Sensor Attributes
 
 **Push Buttons and Switches (iT1, iT2)**
 - `last_event_type`: The type of the last button/switch event
   - `button_released` (bit 0)
   - `button_pressed` (bit 1)
-  - `short_press` (bit 2)
-  - `double_press` (bit 3)
+  - `short_press` (bit 2) — momentary, auto-resets
+  - `double_press` (bit 3) — momentary, auto-resets
   - `long_press_start` (bit 4)
   - `long_press_repeat` (bit 5)
   - `long_press_stop` (bit 6)
@@ -210,6 +216,17 @@ DALI2 pushbuttons, switches, and occupancy sensors appear as binary sensors:
 
 **Occupancy Sensors (iT3)**
 - `movement_detected`: Boolean indicating if movement was detected
+
+### Event Bus Events
+
+The integration fires `dali_lunatone_event` events on the Home Assistant event bus for all button and switch interactions (instance types iT1 and iT2). These events can be used directly in automations.
+
+**Event data:**
+- `device_address`: DALI bus address of the device
+- `instance`: Instance number on the device
+- `instance_type`: Instance type (1 = push button, 2 = switch)
+- `event_type`: Event type string (e.g., `short_press`, `double_press`, `long_press_start`)
+- `event_data`: Raw event data value
 
 ### Sensor Entities
 
@@ -278,6 +295,40 @@ automation:
         data:
           brightness_pct: 60
           color_temp_kelvin: 2700  # Warm white
+```
+
+#### Toggle light on DALI button short press (using event bus)
+```yaml
+automation:
+  - alias: "DALI Button Toggle Light"
+    trigger:
+      - platform: event
+        event_type: dali_lunatone_event
+        event_data:
+          device_address: 10  # Replace with your button address
+          event_type: short_press
+    action:
+      - service: light.toggle
+        target:
+          entity_id: light.dali_led_modules_0  # Replace with your entity ID
+```
+
+#### Dim light on DALI button double press (using event bus)
+```yaml
+automation:
+  - alias: "DALI Button Dim Light"
+    trigger:
+      - platform: event
+        event_type: dali_lunatone_event
+        event_data:
+          device_address: 10  # Replace with your button address
+          event_type: double_press
+    action:
+      - service: light.turn_on
+        target:
+          entity_id: light.dali_led_modules_0  # Replace with your entity ID
+        data:
+          brightness_pct: 30
 ```
 
 ## Architecture
@@ -455,6 +506,6 @@ See [LICENSE](LICENSE) file for details.
 
 **Made with ❤️ for the Home Assistant community**
 
-**Version**: 0.1.1-beta  
+**Version**: 0.1.3-beta  
 **Author**: Mikko Martsola 
-**Last Updated**: November 13, 2025
+**Last Updated**: February 12, 2026
