@@ -503,15 +503,16 @@ class LunatoneClient:
                 #   9=long_press_start, 11=long_press_repeat, 12=long_press_stop,
                 #   14=button_free, 15=button_stuck
                 event_type = event_data  # Full byte is the event identifier
-                # State is True only during active press states
-                instance_info["state"] = event_type in (1, 9, 11)
+                # State is True for any "press" event (active button interaction)
+                # Short press (2) and double press (5) are momentary - coordinator
+                # will auto-reset them to False after a brief delay
+                instance_info["state"] = event_type in (1, 2, 5, 9, 11)
                 instance_info["event_data"] = event_data
                 instance_info["event_type"] = self._decode_button_event(event_type)
             elif instance_type == 2:
                 # iT2: Absolute Input Device/Switch - same event info structure
                 event_type = event_data  # Full byte is the event identifier
-                # Pressed states: 1(pressed), 9(long start), 11(long repeat)
-                instance_info["state"] = event_type in (1, 9, 11)
+                instance_info["state"] = event_type in (1, 2, 5, 9, 11)
                 instance_info["event_data"] = event_data
                 instance_info["event_type"] = self._decode_button_event(event_type)
             elif instance_type == 3:

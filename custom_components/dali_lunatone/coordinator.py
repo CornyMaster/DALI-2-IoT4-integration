@@ -1,6 +1,7 @@
 """DataUpdateCoordinator for Lunatone DALI-2 IoT integration."""
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta
 import logging
 from typing import Any
@@ -14,6 +15,10 @@ from .lunatone_api import DaliDevice, LunatoneClient
 from .storage import DeviceStorage
 
 _LOGGER = logging.getLogger(__name__)
+
+# Momentary event types that should auto-reset the binary sensor state
+MOMENTARY_EVENTS = ("short_press", "double_press")
+MOMENTARY_RESET_DELAY = 0.5  # seconds
 
 
 class LunatoneCoordinator(DataUpdateCoordinator[dict[tuple[str, int], DaliDevice]]):
@@ -332,19 +337,61 @@ class LunatoneCoordinator(DataUpdateCoordinator[dict[tuple[str, int], DaliDevice
             
             if device and instance is not None and instance_info:
                 instance_type = instance_info.get("type", 0)
+                button_event_type = instance_info.get("event_type", "")
                 _LOGGER.debug(
-                    "DALI2 event: address %d, instance %d, type %d, data=%s",
+                    "DALI2 event: address %d, instance %d, type %d, event=%s, data=%s",
                     device.address,
                     instance,
                     instance_type,
+                    button_event_type,
                     instance_info,
                 )
+                
+                # Fire HA event bus event for all button/switch events
+                if instance_type in (1, 2) and button_event_type:
+                    self.hass.bus.async_fire(
+                        f"{DOMAIN}_event",
+                        {
+                            "device_address": device.address,
+                            "instance": instance,
+                            "instance_type": instance_type,
+                            "event_type": button_event_type,
+                            "event_data": instance_info.get("event_data"),
+                        },
+                    )
+                
                 # Trigger coordinator update to notify binary_sensor and sensor entities
                 self.async_set_updated_data(self.client.devices)
+                
+                # Auto-reset momentary events (short_press, double_press)
+                # These set state=True briefly, then reset to False
+                if button_event_type in MOMENTARY_EVENTS:
+                    self.hass.async_create_task(
+                        self._async_reset_momentary_state(
+                            device, instance, instance_info
+                        )
+                    )
 
     def get_led_state(self, address: int, instance: int) -> bool | None:
         """Get the current state of a feedback LED."""
         return self._led_states.get((address, instance))
+
+    async def _async_reset_momentary_state(
+        self, device: DaliDevice, instance: int, instance_info: dict
+    ) -> None:
+        """Reset binary sensor state after a momentary button event."""
+        await asyncio.sleep(MOMENTARY_RESET_DELAY)
+        # Only reset if the state hasn't been changed by another event
+        current_event = instance_info.get("event_type", "")
+        if current_event in MOMENTARY_EVENTS:
+            instance_info["state"] = False
+            _LOGGER.debug(
+                "Auto-reset momentary state: address %d, instance %d, event was %s",
+                device.address,
+                instance,
+                current_event,
+            )
+            self.async_set_updated_data(self.client.devices)
 
     def set_led_state(self, address: int, instance: int, is_on: bool) -> None:
         """Set the state of a feedback LED and notify listeners."""
