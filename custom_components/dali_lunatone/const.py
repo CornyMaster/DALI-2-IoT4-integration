@@ -123,6 +123,25 @@ BUTTON_EVENT_TYPES: Final = {
     15: "button_stuck",              # Button stuck detection (event_info=0b0000001111)
 }
 
+# DALI2 Occupancy Sensor Event Types (for iT3 Occupancy Sensors)
+# Per IEC 62386-303: event info bits define occupancy state.
+# Bit 0: movement (1=detected), Bits 2:1: occupancy (00=vacant, 01=occupied, 11=still occupied)
+OCCUPANCY_EVENT_TYPES: Final = {
+    "movement_detected": "Movement detected",
+    "no_movement": "No movement",
+    "occupied": "Occupied",
+    "vacant": "Vacant",
+    "still_occupied": "Still occupied",
+}
+
+# Event bus event name for device triggers
+DALI_EVENT: Final = f"{DOMAIN}_event"
+
+# All supported event types for device automation triggers, keyed by instance type
+BUTTON_EVENT_TYPE_LIST: Final = list(BUTTON_EVENT_TYPES.values())
+OCCUPANCY_EVENT_TYPE_LIST: Final = list(OCCUPANCY_EVENT_TYPES.keys())
+ALL_EVENT_TYPES: Final = BUTTON_EVENT_TYPE_LIST + OCCUPANCY_EVENT_TYPE_LIST
+
 # Color temperature range (in Kelvin)
 MIN_COLOR_TEMP_KELVIN: Final = 2700
 MAX_COLOR_TEMP_KELVIN: Final = 6500

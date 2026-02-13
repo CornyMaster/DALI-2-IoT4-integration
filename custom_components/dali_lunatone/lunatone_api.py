@@ -519,8 +519,10 @@ class LunatoneClient:
                 # iT3: Occupancy Sensor
                 bits21 = (event_data >> 1) & 0x03
                 instance_info["state"] = bits21 in (0b01, 0b11)  # Occupied or Still Occupied
-                instance_info["movement"] = (event_data & 0x01) == 1
+                movement = (event_data & 0x01) == 1
+                instance_info["movement"] = movement
                 instance_info["event_data"] = event_data
+                instance_info["event_type"] = self._decode_occupancy_event(event_data)
             elif instance_type == 4:
                 # iT4: Light Sensor
                 instance_info["value"] = event_data  # Lux value
@@ -537,6 +539,30 @@ class LunatoneClient:
         except Exception as e:
             _LOGGER.error("Error in _handle_dali2_event: %s", e, exc_info=True)
 
+
+    def _decode_occupancy_event(self, event_data: int) -> str:
+        """Decode occupancy sensor event type from IEC 62386-303 event info.
+
+        Bit 0: movement (1=detected, 0=no movement)
+        Bits 2:1: occupancy state
+            00 = vacant
+            01 = occupied
+            10 = unknown
+            11 = still occupied
+        """
+        movement = (event_data & 0x01) == 1
+        occupancy_bits = (event_data >> 1) & 0x03
+
+        if occupancy_bits == 0b01:
+            return "occupied"
+        elif occupancy_bits == 0b11:
+            return "still_occupied"
+        elif occupancy_bits == 0b00:
+            return "vacant"
+        elif movement:
+            return "movement_detected"
+        else:
+            return "no_movement"
 
     def _decode_button_event(self, event_type: int) -> str:
         """Decode pushbutton event type from IEC 62386-301 event info.

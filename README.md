@@ -29,6 +29,8 @@ A custom Home Assistant integration for controlling the Lunatone DALI-2 IoT Gate
 
 ✅ **Light Sensors** - DALI2 illuminance sensors
 
+✅ **Device Triggers** - DALI2 button and occupancy events as automation triggers (selectable from dropdown)
+
 ✅ **Reconnection** - Automatic reconnection on connection loss
 
 ✅ **DataUpdateCoordinator** - Efficient state polling with configurable intervals
@@ -219,14 +221,50 @@ DALI2 pushbuttons, switches, and occupancy sensors appear as binary sensors:
 
 ### Event Bus Events
 
-The integration fires `dali_lunatone_event` events on the Home Assistant event bus for all button and switch interactions (instance types iT1 and iT2). These events can be used directly in automations.
+The integration fires `dali_lunatone_event` events on the Home Assistant event bus for all button, switch, and occupancy interactions (instance types iT1, iT2, and iT3). These events can be used directly in automations.
 
 **Event data:**
+- `device_id`: Home Assistant device ID (for device trigger matching)
+- `type`: Event type string (same as `event_type`, used by device triggers)
 - `device_address`: DALI bus address of the device
 - `instance`: Instance number on the device
-- `instance_type`: Instance type (1 = push button, 2 = switch)
-- `event_type`: Event type string (e.g., `short_press`, `double_press`, `long_press_start`)
+- `instance_type`: Instance type (1 = push button, 2 = switch, 3 = occupancy)
+- `event_type`: Event type string (e.g., `short_press`, `double_press`, `occupied`, `vacant`)
 - `event_data`: Raw event data value
+
+### Device Triggers (Automation UI)
+
+DALI-2 input devices are registered as device triggers in Home Assistant, allowing you to select events directly from the automation UI dropdown — no YAML needed.
+
+To use:
+1. Go to **Settings → Automations → Create Automation**
+2. Click **Add Trigger → Device**
+3. Select your DALI-2 device
+4. Choose the event type from the dropdown
+
+#### Push Button / Switch Triggers (iT1, iT2)
+
+| Trigger | Description |
+|---------|-------------|
+| Button released | Button was released |
+| Button pressed | Button was pressed down |
+| Short press | Short press completed |
+| Double press | Double press detected |
+| Long press started | Long press threshold reached |
+| Long press repeat | Long press ongoing (periodic) |
+| Long press stopped | Button released after long press |
+| Button free (unstuck) | Button was stuck and is now released |
+| Button stuck | Button stuck detection |
+
+#### Occupancy Sensor Triggers (iT3)
+
+| Trigger | Description |
+|---------|-------------|
+| Movement detected | Motion sensor detected movement |
+| No movement | No movement detected |
+| Occupied | Area is occupied |
+| Vacant | Area is vacant |
+| Still occupied | Area is still occupied (periodic) |
 
 ### Sensor Entities
 
@@ -313,6 +351,53 @@ automation:
           entity_id: light.dali_led_modules_0  # Replace with your entity ID
 ```
 
+#### Toggle light on button press (using device trigger - recommended)
+```yaml
+automation:
+  - alias: "DALI Button Toggle Light"
+    trigger:
+      - platform: device
+        domain: dali_lunatone
+        device_id: <your_device_id>  # From UI or device registry
+        type: short_press
+    action:
+      - service: light.toggle
+        target:
+          entity_id: light.dali_led_modules_0
+```
+
+#### Turn on lights when occupancy detected (using device trigger)
+```yaml
+automation:
+  - alias: "DALI Occupancy Light On"
+    trigger:
+      - platform: device
+        domain: dali_lunatone
+        device_id: <your_device_id>
+        type: occupied
+    action:
+      - service: light.turn_on
+        target:
+          entity_id: light.dali_led_modules_0
+        data:
+          brightness_pct: 100
+```
+
+#### Turn off lights when area vacant
+```yaml
+automation:
+  - alias: "DALI Vacancy Light Off"
+    trigger:
+      - platform: device
+        domain: dali_lunatone
+        device_id: <your_device_id>
+        type: vacant
+    action:
+      - service: light.turn_off
+        target:
+          entity_id: light.dali_led_modules_0
+```
+
 #### Dim light on DALI button double press (using event bus)
 ```yaml
 automation:
@@ -351,7 +436,12 @@ automation:
    - Proper state reporting
    - Device info integration
 
-4. **`config_flow.py`** - UI configuration flow
+5. **`device_trigger.py`** - Device automation triggers
+   - Push button event triggers (short press, long press, etc.)
+   - Occupancy sensor triggers (occupied, vacant, movement)
+   - Selectable from Home Assistant automation UI dropdown
+
+6. **`config_flow.py`** - UI configuration flow
    - Connection validation
    - Duplicate prevention
    - User-friendly setup

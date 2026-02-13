@@ -8,9 +8,10 @@ from typing import Any
 
 from homeassistant.components import persistent_notification
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import CONF_BACKGROUND_STATUS_POLLING, CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL, DOMAIN
+from .const import CONF_BACKGROUND_STATUS_POLLING, CONF_POLLING_INTERVAL, DALI_EVENT, DEFAULT_POLLING_INTERVAL, DOMAIN
 from .lunatone_api import DaliDevice, LunatoneClient
 from .storage import DeviceStorage
 
@@ -347,11 +348,20 @@ class LunatoneCoordinator(DataUpdateCoordinator[dict[tuple[str, int], DaliDevice
                     instance_info,
                 )
                 
-                # Fire HA event bus event for all button/switch events
-                if instance_type in (1, 2) and button_event_type:
+                # Fire HA event bus event for button/switch/occupancy events
+                if instance_type in (1, 2, 3) and button_event_type:
+                    # Look up HA device_id for device trigger matching
+                    device_reg = dr.async_get(self.hass)
+                    ha_device = device_reg.async_get_device(
+                        identifiers={(DOMAIN, f"{device.protocol}_{device.address}")}
+                    )
+                    ha_device_id = ha_device.id if ha_device else None
+
                     self.hass.bus.async_fire(
-                        f"{DOMAIN}_event",
+                        DALI_EVENT,
                         {
+                            "device_id": ha_device_id,
+                            "type": button_event_type,
                             "device_address": device.address,
                             "instance": instance,
                             "instance_type": instance_type,

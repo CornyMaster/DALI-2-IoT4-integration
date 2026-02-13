@@ -35,6 +35,23 @@
         }
       }
     }
+  },
+  "device_automation": {
+    "trigger_type": {
+      "button_released": "Button released",
+      "button_pressed": "Button pressed",
+      "short_press": "Short press",
+      "double_press": "Double press",
+      "long_press_start": "Long press started",
+      "long_press_repeat": "Long press repeat",
+      "long_press_stop": "Long press stopped",
+      "button_free": "Button free (unstuck)",
+      "button_stuck": "Button stuck",
+      "movement_detected": "Movement detected",
+      "no_movement": "No movement",
+      "occupied": "Occupied",
+      "vacant": "Vacant",
+      "still_occupied": "Still occupied"
+    }
   }
 }
-
