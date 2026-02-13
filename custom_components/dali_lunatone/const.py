@@ -137,6 +137,17 @@ OCCUPANCY_EVENT_TYPES: Final = {
 # Event bus event name for device triggers
 DALI_EVENT: Final = f"{DOMAIN}_event"
 
+# Subtype key for device automation (instance selection)
+CONF_SUBTYPE: Final = "subtype"
+
+# Instance type names for UI labels
+INSTANCE_TYPE_NAMES: Final = {
+    1: "Push Button",
+    2: "Switch",
+    3: "Occupancy Sensor",
+    4: "Light Sensor",
+}
+
 # All supported event types for device automation triggers, keyed by instance type
 BUTTON_EVENT_TYPE_LIST: Final = list(BUTTON_EVENT_TYPES.values())
 OCCUPANCY_EVENT_TYPE_LIST: Final = list(OCCUPANCY_EVENT_TYPES.keys())
