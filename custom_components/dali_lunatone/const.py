@@ -40,6 +40,7 @@ GTIN_MANUFACTURERS: Final = {
     "6971542121802": "Sunricher",  # Full GTIN for Sunricher
     "6971542": "Sunricher",  # Prefix for Sunricher
     "8718696": "Signify",
+    "769894": "Shredded Foam Of Hawaii, Inc.",
     "9010342": "Lunatone",
     "9006210": "Tridonic",
 }

@@ -808,25 +808,53 @@ class LunatoneClient:
                         #
                         # CRITICAL: QUERY NEXT DEVICE TYPE (cmd 167) MUST follow
                         # QUERY DEVICE TYPE without any intervening DALI commands.
-                        # ANY other command (including QUERY STATUS) invalidates the
-                        # device type iterator.  The Cockpit issues QUERY NEXT DEVICE
-                        # TYPE with only DALI-bus RTT (~50 ms) between calls.
-                        # We use 20 ms extra sleep to stay well within that window.
-                        for _attempt in range(10):  # at most 10 device types
-                            await asyncio.sleep(0.02)
-                            ndt_result = await self._send_dali_frame(
-                                line,
-                                [(address << 1) | 1, CMD_QUERY_NEXT_DEVICE_TYPE],
-                                wait_for_answer=True,
-                            )
-                            ndt_val = self._extract_response_value(ndt_result)
-                            if ndt_val is None or ndt_val == 254:
-                                break  # No reply or end-of-list
-                            if ndt_val != 255 and ndt_val not in detected_types:
-                                detected_types.append(ndt_val)
+                        # ANY other command — including commands from another DALI
+                        # controller sharing the same bus/gateway — invalidates the
+                        # device type iterator.
+                        #
+                        # When the iterator is disrupted (detected_types comes back
+                        # empty), we retry by re-sending QUERY DEVICE TYPE (which
+                        # resets the iterator in the device firmware) and trying again.
+                        # Up to MAX_SCAN_RETRIES attempts, with a longer wait before
+                        # each retry to let competing bus traffic settle.
+                        MAX_SCAN_RETRIES = 3
+                        for _scan_retry in range(MAX_SCAN_RETRIES):
+                            if _scan_retry > 0:
+                                # Wait for competing bus traffic to clear, then re-init
+                                # the iterator by re-sending QUERY DEVICE TYPE.
+                                await asyncio.sleep(0.5)
+                                retry_result = await self._send_dali_frame(
+                                    line,
+                                    [(address << 1) | 1, CMD_QUERY_DEVICE_TYPE],
+                                    wait_for_answer=True,
+                                )
+                                if self._extract_response_value(retry_result) != 255:
+                                    # Device no longer returns MASK — unexpected; stop.
+                                    break
+                                _LOGGER.debug(
+                                    "Multi-type address %d: retrying iterator (attempt %d/%d)",
+                                    address, _scan_retry + 1, MAX_SCAN_RETRIES,
+                                )
 
-                        # Strip bus-collision artefact 0x55 (wired-AND of all slaves)
-                        detected_types = [t for t in detected_types if t != 0x55]
+                            detected_types = []
+                            for _attempt in range(10):  # at most 10 device types
+                                await asyncio.sleep(0.02)
+                                ndt_result = await self._send_dali_frame(
+                                    line,
+                                    [(address << 1) | 1, CMD_QUERY_NEXT_DEVICE_TYPE],
+                                    wait_for_answer=True,
+                                )
+                                ndt_val = self._extract_response_value(ndt_result)
+                                if ndt_val is None or ndt_val == 254:
+                                    break  # No reply or end-of-list
+                                if ndt_val != 255 and ndt_val not in detected_types:
+                                    detected_types.append(ndt_val)
+
+                            # Strip bus-collision artefact 0x55 (wired-AND of all slaves)
+                            detected_types = [t for t in detected_types if t != 0x55]
+
+                            if detected_types:
+                                break  # Successfully enumerated — no need to retry
 
                         # DT8 explicit probe: if the iterator didn't enumerate DT8,
                         # try ENABLE DEVICE TYPE 8 + Query Colour Type as a fallback.
@@ -844,13 +872,16 @@ class LunatoneClient:
                             if self._extract_response_value(ct_result) not in (None, 255):
                                 detected_types.append(8)
 
-                        # No types detected → MASK was likely a bus collision; skip.
+                        # Still nothing after retries + DT8 probe: device definitely
+                        # exists (MASK was returned) but iterator was never cooperative.
+                        # Default to DT6 (LED) so the device at least appears in HA.
                         if not detected_types:
-                            _LOGGER.debug(
-                                "Multi-type address %d: no device types found, skipping",
-                                address,
+                            _LOGGER.warning(
+                                "Multi-type address %d: iterator disrupted on all %d attempts, "
+                                "defaulting to DT6",
+                                address, MAX_SCAN_RETRIES,
                             )
-                            continue
+                            detected_types = [6]
 
                         # Choose primary type: prefer DT8 > DT6 > first found
                         PREFERRED_ORDER = [8, 6]

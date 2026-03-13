@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4-beta-2] - 2026-03-13
+
+### Fixed
+- **DALI device type iterator disrupted by shared bus** - When two Home Assistant instances share the same Lunatone gateway, DALI commands from one instance land between `QUERY DEVICE TYPE` and `QUERY NEXT DEVICE TYPE` on the other, invalidating the device type iterator. Added a retry loop (up to 3 attempts) that re-sends `QUERY DEVICE TYPE` (resetting the iterator in device firmware) and waits 500 ms for competing bus traffic to clear before each retry. This fixes intermittent DT6-only detection for addresses 25 and 27 on a shared bus.
+- **Added GTIN prefix `769894`** → `Shredded Foam Of Hawaii, Inc.`
+
 ## [0.1.4-beta] - 2026-03-13
 
 ### Fixed
