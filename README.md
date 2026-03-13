@@ -596,6 +596,6 @@ See [LICENSE](LICENSE) file for details.
 
 **Made with ❤️ for the Home Assistant community**
 
-**Version**: 0.1.3-beta  
+**Version**: 0.1.4-beta  
 **Author**: Mikko Martsola 
-**Last Updated**: February 12, 2026
+**Last Updated**: March 13, 2026

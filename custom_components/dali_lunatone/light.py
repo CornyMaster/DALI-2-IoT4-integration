@@ -13,7 +13,7 @@ from homeassistant.components.light import (
     LightEntity,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.entity import DeviceInfo
@@ -68,6 +68,32 @@ async def async_setup_entry(
     if entities:
         async_add_entities(entities)
         _LOGGER.info("Added %d DALI light entities", len(entities))
+
+    # Track which (protocol, address) keys already have a light entity so we can
+    # dynamically add entities for devices that become light-capable after a scan.
+    _known_light_keys: set[tuple[str, int]] = {
+        (protocol, address)
+        for (protocol, address), device in coordinator.data.items()
+        if protocol == "DALI" and device.device_type in [6, 7, 8]
+    }
+
+    @callback
+    def _async_check_new_light_entities() -> None:
+        """Create light entities for devices that became DT6/7/8 after a rescan."""
+        new_entities: list[LunatoneDaliLight] = []
+        for (proto, addr), dev in (coordinator.data or {}).items():
+            key = (proto, addr)
+            if key not in _known_light_keys and proto == "DALI" and dev.device_type in [6, 7, 8]:
+                _known_light_keys.add(key)
+                new_entities.append(LunatoneDaliLight(coordinator, proto, addr, entry))
+        if new_entities:
+            _LOGGER.info(
+                "Dynamically adding %d new DALI light entities after scan",
+                len(new_entities),
+            )
+            async_add_entities(new_entities)
+
+    entry.async_on_unload(coordinator.async_add_listener(_async_check_new_light_entities))
 
     # Find groups with devices
     groups_with_devices = set()
@@ -127,23 +153,33 @@ class LunatoneDaliLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
         self._address = address
         self._device_key = (protocol, address)
         
-        # Get initial device reference
-        device = coordinator.data[self._device_key]
         self._attr_unique_id = f"{entry.entry_id}_{protocol}_{address}"
         # Set name in format: "DALI Address 4" or "DALI2 Address 0"
         self._attr_name = f"{protocol} Address {address}"
 
-        # Set supported features based on device type
-        # DT8 devices support both brightness and color temperature
+        # Default to brightness-only; _update_color_mode upgrades to CCT if DT8
+        self._attr_supported_color_modes = {ColorMode.BRIGHTNESS}
+        self._attr_color_mode = ColorMode.BRIGHTNESS
+        self._update_color_mode()
+
+    def _update_color_mode(self) -> None:
+        """Re-evaluate color mode capabilities from current coordinator data."""
+        device = self._device
+        if device is None:
+            return
         if device.supports_color_temp:
             self._attr_supported_color_modes = {ColorMode.COLOR_TEMP}
             self._attr_color_mode = ColorMode.COLOR_TEMP
             self._attr_min_color_temp_kelvin = MIN_COLOR_TEMP_KELVIN
             self._attr_max_color_temp_kelvin = MAX_COLOR_TEMP_KELVIN
         else:
-            # DT6 (LED) and DT7 (Switching) support brightness only
             self._attr_supported_color_modes = {ColorMode.BRIGHTNESS}
             self._attr_color_mode = ColorMode.BRIGHTNESS
+
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated coordinator data, refreshing color mode if device type changed."""
+        self._update_color_mode()
+        super()._handle_coordinator_update()
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -153,10 +189,14 @@ class LunatoneDaliLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
         protocol = self._protocol
         address = self._address
         
+        # Build model label: show all types for multi-type devices, e.g. "DALI DT6,8"
+        types_label = device.device_types_label if hasattr(device, "device_types_label") else f"DT{device.device_type}"
+        model_label = f"{protocol} {types_label}"
+
         device_info_dict = DeviceInfo(
             identifiers={(DOMAIN, f"{protocol}_{address}")},
             name=f"{protocol} Address {address}",
-            model=f"{protocol} DT{device.device_type}",
+            model=model_label,
             via_device=(DOMAIN, self.coordinator.config_entry.entry_id),
         )
         
@@ -164,7 +204,7 @@ class LunatoneDaliLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
         if hasattr(device, "manufacturer") and device.manufacturer:
             device_info_dict["manufacturer"] = device.manufacturer
         if hasattr(device, "gtin_decimal") and device.gtin_decimal:
-            device_info_dict["model"] = f"{protocol} DT{device.device_type} (GTIN: {device.gtin_decimal})"
+            device_info_dict["model"] = f"{model_label} (GTIN: {device.gtin_decimal})"
         if hasattr(device, "firmware_version") and device.firmware_version:
             device_info_dict["sw_version"] = device.firmware_version
         if hasattr(device, "hardware_version") and device.hardware_version:
@@ -175,9 +215,9 @@ class LunatoneDaliLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
         return device_info_dict
 
     @property
-    def _device(self) -> DaliDevice:
-        """Get current device state from coordinator."""
-        return self.coordinator.data[self._device_key]
+    def _device(self) -> DaliDevice | None:
+        """Get current device state from coordinator, or None if removed."""
+        return (self.coordinator.data or {}).get(self._device_key)
 
     @property
     def is_on(self) -> bool:
@@ -202,12 +242,16 @@ class LunatoneDaliLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return extra state attributes."""
-        return {
+        attrs: dict[str, Any] = {
             ATTR_ADDRESS: self._address,
             ATTR_PROTOCOL: self._protocol,
             ATTR_DEVICE_TYPE: self._device.device_type,
             ATTR_DEVICE_NAME: self._device.device_name,
         }
+        # Expose all supported device types for multi-type gear
+        if hasattr(self._device, "device_types") and self._device.device_types:
+            attrs["device_types"] = self._device.device_types
+        return attrs
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn on the light."""
@@ -269,7 +313,11 @@ class LunatoneDaliLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        return self.coordinator.last_update_success and self.coordinator.client.connected
+        return (
+            self.coordinator.last_update_success
+            and self.coordinator.client.connected
+            and self._device_key in (self.coordinator.data or {})
+        )
 
 
 class FeedbackLedLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
@@ -321,27 +369,28 @@ class FeedbackLedLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
     @property
     def device_info(self) -> DeviceInfo:
         """Return device info."""
-        device = self.coordinator.data[self._device_key]
-        
+        device = (self.coordinator.data or {}).get(self._device_key)
+        model = device.device_name if device else "DALI2 Device"
+
         device_info_dict = DeviceInfo(
             identifiers={(DOMAIN, f"{self._protocol}_{self._address}")},
             name=f"{self._protocol} Address {self._address}",
-            model=device.device_name,
+            model=model,
             via_device=(DOMAIN, self.coordinator.config_entry.entry_id),
         )
-        
-        # Add extended device information if available
-        if hasattr(device, "manufacturer") and device.manufacturer:
-            device_info_dict["manufacturer"] = device.manufacturer
-        if hasattr(device, "gtin_decimal") and device.gtin_decimal:
-            device_info_dict["model"] = f"{device.device_name} (GTIN: {device.gtin_decimal})"
-        if hasattr(device, "firmware_version") and device.firmware_version:
-            device_info_dict["sw_version"] = device.firmware_version
-        if hasattr(device, "hardware_version") and device.hardware_version:
-            device_info_dict["hw_version"] = device.hardware_version
-        if hasattr(device, "serial_number") and device.serial_number:
-            device_info_dict["serial_number"] = device.serial_number
-        
+
+        if device:
+            if hasattr(device, "manufacturer") and device.manufacturer:
+                device_info_dict["manufacturer"] = device.manufacturer
+            if hasattr(device, "gtin_decimal") and device.gtin_decimal:
+                device_info_dict["model"] = f"{model} (GTIN: {device.gtin_decimal})"
+            if hasattr(device, "firmware_version") and device.firmware_version:
+                device_info_dict["sw_version"] = device.firmware_version
+            if hasattr(device, "hardware_version") and device.hardware_version:
+                device_info_dict["hw_version"] = device.hardware_version
+            if hasattr(device, "serial_number") and device.serial_number:
+                device_info_dict["serial_number"] = device.serial_number
+
         return device_info_dict
 
     @property
@@ -391,9 +440,11 @@ class FeedbackLedLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return extra state attributes."""
-        device = self.coordinator.data[self._device_key]
+        device = (self.coordinator.data or {}).get(self._device_key)
+        if device is None:
+            return {"address": self._address, "instance": self._instance_num}
         instance_data = device.instances.get(self._instance_num, {})
-        
+
         return {
             "address": self._address,
             "instance": self._instance_num,
@@ -404,7 +455,11 @@ class FeedbackLedLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        return self.coordinator.last_update_success and self.coordinator.client.connected
+        return (
+            self.coordinator.last_update_success
+            and self.coordinator.client.connected
+            and self._device_key in (self.coordinator.data or {})
+        )
 
 
 class DaliGroupLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
@@ -434,10 +489,10 @@ class DaliGroupLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
                     supports_color_temp = True
                     break
         
-        # Always support brightness mode for slider UI, add color temp if devices support it
+        # COLOR_TEMP implies brightness control — never combine with BRIGHTNESS
         if supports_color_temp:
-            self._attr_supported_color_modes = {ColorMode.BRIGHTNESS, ColorMode.COLOR_TEMP}
-            self._attr_color_mode = ColorMode.BRIGHTNESS
+            self._attr_supported_color_modes = {ColorMode.COLOR_TEMP}
+            self._attr_color_mode = ColorMode.COLOR_TEMP
             self._attr_min_color_temp_kelvin = MIN_COLOR_TEMP_KELVIN
             self._attr_max_color_temp_kelvin = MAX_COLOR_TEMP_KELVIN
         else:
@@ -525,10 +580,10 @@ class DaliBroadcastLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
             if device.protocol == "DALI"
         )
         
-        # Always support brightness mode for slider UI, add color temp if devices support it
+        # COLOR_TEMP implies brightness control — never combine with BRIGHTNESS
         if supports_color_temp:
-            self._attr_supported_color_modes = {ColorMode.BRIGHTNESS, ColorMode.COLOR_TEMP}
-            self._attr_color_mode = ColorMode.BRIGHTNESS
+            self._attr_supported_color_modes = {ColorMode.COLOR_TEMP}
+            self._attr_color_mode = ColorMode.COLOR_TEMP
             self._attr_min_color_temp_kelvin = MIN_COLOR_TEMP_KELVIN
             self._attr_max_color_temp_kelvin = MAX_COLOR_TEMP_KELVIN
         else:

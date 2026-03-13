@@ -97,8 +97,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 await client.update_device_states()
                 await coordinator.async_request_refresh()
                 _LOGGER.info("Background state update completed")
-            except Exception as e:
-                _LOGGER.error("Error during background state update: %s", e)
+            except Exception:
+                _LOGGER.exception("Error during background state update")
 
     # If HASS already started, run immediately, otherwise wait for startup event
     if hass.state == CoreState.running:

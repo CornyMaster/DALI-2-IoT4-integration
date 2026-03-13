@@ -45,6 +45,7 @@ class LunatoneCoordinator(DataUpdateCoordinator[dict[tuple[str, int], DaliDevice
         self._polling_interval = polling_interval
         self._last_full_scan = 0.0  # Timestamp of last full state scan
         self._led_states: dict[tuple[int, int], bool] = {}  # (address, instance) -> is_on
+        self._scan_in_progress = False
         
         # Register callback for real-time events
         self.client.add_callback(self._handle_device_event)
@@ -139,7 +140,25 @@ class LunatoneCoordinator(DataUpdateCoordinator[dict[tuple[str, int], DaliDevice
 
     async def async_rescan_devices(self) -> dict[tuple[str, int], DaliDevice]:
         """Rescan for devices on the bus."""
+        if self._scan_in_progress:
+            _LOGGER.warning("Scan already in progress, ignoring request")
+            persistent_notification.async_create(
+                self.hass,
+                "A scan is already running. Please wait for it to complete before starting a new one.",
+                title="DALI Scan Already In Progress",
+                notification_id=f"{DOMAIN}_scan_already_running",
+            )
+            return self.client.devices
+
+        self._scan_in_progress = True
         _LOGGER.info("Rescanning for DALI devices")
+
+        persistent_notification.async_create(
+            self.hass,
+            "Manual scan started. This may take up to a minute while the DALI bus is queried.",
+            title="DALI Scan In Progress",
+            notification_id=f"{DOMAIN}_scan_progress",
+        )
         
         # Get old devices for comparison
         old_devices = set(self.client.devices.keys())
@@ -149,6 +168,8 @@ class LunatoneCoordinator(DataUpdateCoordinator[dict[tuple[str, int], DaliDevice
             devices = await self.client.scan_devices()
         except ConnectionError as e:
             _LOGGER.error("Cannot rescan: %s", e)
+            self._scan_in_progress = False
+            persistent_notification.async_dismiss(self.hass, f"{DOMAIN}_scan_progress")
             persistent_notification.async_create(
                 self.hass,
                 f"Rescan failed: {e}. Please check that the gateway is online and try again.",
@@ -158,6 +179,8 @@ class LunatoneCoordinator(DataUpdateCoordinator[dict[tuple[str, int], DaliDevice
             return self.client.devices
         except Exception as e:
             _LOGGER.error("Error during rescan: %s", e)
+            self._scan_in_progress = False
+            persistent_notification.async_dismiss(self.hass, f"{DOMAIN}_scan_progress")
             persistent_notification.async_create(
                 self.hass,
                 f"Rescan error: {e}",
@@ -188,6 +211,28 @@ class LunatoneCoordinator(DataUpdateCoordinator[dict[tuple[str, int], DaliDevice
         if missing_devices:
             await self._report_missing_devices(missing_devices)
         
+        # Dismiss in-progress notification and show result
+        self._scan_in_progress = False
+        persistent_notification.async_dismiss(self.hass, f"{DOMAIN}_scan_progress")
+        persistent_notification.async_dismiss(self.hass, f"{DOMAIN}_scan_already_running")
+        added_count = len(added_devices)
+        missing_count = len(missing_devices)
+        total_count = len(self.client.devices)
+        if added_count or missing_count:
+            summary = (
+                f"Scan complete: {total_count} devices found.\n"
+                + (f"  • {added_count} newly discovered\n" if added_count else "")
+                + (f"  • {missing_count} no longer present\n" if missing_count else "")
+            )
+        else:
+            summary = f"Scan complete: {total_count} devices found, no changes."
+        persistent_notification.async_create(
+            self.hass,
+            summary,
+            title="DALI Scan Complete",
+            notification_id=f"{DOMAIN}_scan_complete",
+        )
+
         await self.async_request_refresh()
         return devices
     
@@ -196,10 +241,11 @@ class LunatoneCoordinator(DataUpdateCoordinator[dict[tuple[str, int], DaliDevice
         for key in device_keys:
             device = self.client.devices.get(key)
             if device:
+                types_label = device.device_types_label if hasattr(device, "device_types_label") else f"DT{device.device_type}"
                 persistent_notification.async_create(
                     self.hass,
                     f"New {device.protocol} device found:\n"
-                    f"Type: {device.device_type}\n"
+                    f"Type: {types_label}\n"
                     f"Address: {device.address}\n"
                     f"Name: {device.device_name}",
                     "DALI Device Discovered",
@@ -208,7 +254,7 @@ class LunatoneCoordinator(DataUpdateCoordinator[dict[tuple[str, int], DaliDevice
                 _LOGGER.info(
                     "New device discovered: %s %s at address %d",
                     device.protocol,
-                    device.device_type,
+                    types_label,
                     device.address,
                 )
     
@@ -219,15 +265,23 @@ class LunatoneCoordinator(DataUpdateCoordinator[dict[tuple[str, int], DaliDevice
         for key in device_keys:
             protocol, address = key
             
-            # Get device info from old data if available
-            device_name = "Unknown"
-            device_type = "Unknown"
-            if key in self.client.devices:
-                device = self.client.devices[key]
-                device_name = device.device_name
-                device_type = device.device_type
-            
-            # Create repair issue
+            # Look up device name/type from old backup (stored in client before scan cleared it)
+            # After scan, client.devices has the NEW devices, so missing ones won't be there.
+            # We use the coordinator data which still has the pre-scan snapshot.
+            old_device = (self.data or {}).get(key)
+            device_name = old_device.device_name if old_device else "Unknown"
+            device_type = old_device.device_type if old_device else "Unknown"
+
+            # Skip repair issue creation for devices that were never properly identified
+            # (stale storage artefacts from failed scans show device_name="Unknown")
+            if device_name in ("Unknown", None) or str(device_name).startswith("Unknown ("):
+                _LOGGER.debug(
+                    "Stale/unidentified device removed from storage: %s at address %d",
+                    protocol, address,
+                )
+                continue
+
+            # Create repair issue for real, previously known devices
             ir.async_create_issue(
                 self.hass,
                 DOMAIN,
@@ -239,7 +293,7 @@ class LunatoneCoordinator(DataUpdateCoordinator[dict[tuple[str, int], DaliDevice
                     "protocol": protocol,
                     "address": str(address),
                     "device_name": device_name,
-                    "device_type": device_type,
+                    "device_type": str(device_type),
                 },
             )
             

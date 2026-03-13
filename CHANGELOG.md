@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4-beta] - 2026-03-13
+
+### Fixed
+- **Critical: DALI device type iterator invalidation** - `QUERY NEXT DEVICE TYPE` (cmd 167) must immediately follow `QUERY DEVICE TYPE` with no intervening DALI commands. The previous code sent a `QUERY STATUS` command between the two, which reset the device type iterator per IEC 62386-102. This caused multi-type devices (e.g. DT6+DT8 CCT luminaires) at addresses 25-27 to be detected as DT6 only, losing CCT colour control.
+- **Corrected `CMD_QUERY_NEXT_DEVICE_TYPE` constant** - Was `154` (0x9A), corrected to `167` (0xA7) based on Lunatone DALI Cockpit TCP capture analysis. The wrong command caused devices 40-49 to previously appear as DT85.
+- **Reduced iterator loop sleep** from 100 ms to 20 ms to stay within the ~80 ms iterator timeout observed on some device firmware.
+- **Dynamic light entity creation** - Light entities are now created dynamically when a manual scan detects new DT6/DT7/DT8 devices that were previously unknown (e.g. devices stored as DT1 at startup that become DT8 after a scan).
+- **CCT color mode refresh** - `LunatoneDaliLight` now re-evaluates `supported_color_modes` on every coordinator update, so an entity created as brightness-only (DT6) correctly gains CCT controls after being rescanned as DT8 without requiring a restart.
+- **`KeyError` in background state update** - `update_device_states` used an unguarded `self._devices[(protocol, address)]` lookup that could raise `KeyError` if device list changed mid-iteration; replaced with safe `.get()`.
+- **`KeyError` in `LunatoneDaliLight.__init__`** - Constructor no longer does an unguarded `coordinator.data[key]` lookup; initial color mode is set via the safe `_update_color_mode()` helper.
+- **Full traceback in background update errors** - Changed `_LOGGER.error("...: %s", e)` to `_LOGGER.exception(...)` so stack traces are visible in the log.
+
+### Changed
+- Multi-type device scan: removed `QUERY STATUS` presence-check (Step A) that invalidated the iterator; the MASK (0xFF) response itself is sufficient evidence of device presence; if the subsequent `QUERY NEXT DEVICE TYPE` loop returns nothing, the device is silently skipped rather than defaulting to DT6.
+- `FeedbackLedLight` constructor uses `coordinator.data.get(key)` instead of direct `[]` access to prevent `KeyError` when the device is temporarily absent from coordinator data.
+
 ## [0.1.3-beta] - 2026-02-11
 
 ### Fixed

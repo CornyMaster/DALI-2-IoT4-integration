@@ -11,6 +11,7 @@ from websockets.client import WebSocketClientProtocol
 
 from .const import (
     CMD_ACTIVATE,
+    CMD_DT8_QUERY_COLOUR_TYPE,
     CMD_ENABLE_DT8,
     CMD_OFF,
     CMD_QUERY_ACTUAL_LEVEL,
@@ -21,8 +22,10 @@ from .const import (
     CMD_QUERY_GROUPS_0_7,
     CMD_QUERY_GROUPS_8_15,
     CMD_QUERY_INSTANCE_TYPE,
+    CMD_QUERY_NEXT_DEVICE_TYPE,
     CMD_QUERY_NEXT_FEATURE_TYPE,
     CMD_QUERY_NUMBER_OF_INSTANCES,
+    CMD_QUERY_STATUS,
     CMD_READ_MEMORY_LOCATION,
     CMD_RECALL_MAX_LEVEL,
     CMD_SET_DTR0,
@@ -184,6 +187,11 @@ class DaliDevice:
         self.instances: dict[int, dict[str, Any]] = {}  # DALI2 instances {instance_num: {type, enabled, etc}}
         self.num_instances: int = 0
         
+        # Multi-type device support: list of all DALI device types this gear supports.
+        # Single-type devices have an empty list; the primary type is always device_type.
+        # Example: a device reporting DT6+DT8 will have device_type=8, device_types=[6, 8]
+        self.device_types: list[int] = []
+        
         # Extended device information (from Memory Bank 0)
         self.gtin: str | None = None  # Global Trade Item Number (hex format)
         self.firmware_version: str | None = None  # e.g., "7.0"
@@ -212,6 +220,22 @@ class DaliDevice:
         return format_serial_number(self.identification_number) if self.identification_number else None
 
     @property
+    def device_types_label(self) -> str:
+        """Return a human-readable label of all supported device types.
+        
+        For single-type devices returns e.g. "DT8".
+        For multi-type devices returns e.g. "DALI DT6,8".
+        """
+        if self.device_types and len(self.device_types) > 1:
+            return "DALI DT" + ",".join(str(t) for t in sorted(self.device_types))
+        return f"DT{self.device_type}"
+
+    @property
+    def is_multitype(self) -> bool:
+        """Return True if this device supports multiple DALI device types."""
+        return len(self.device_types) > 1
+
+    @property
     def supports_color_temp(self) -> bool:
         """Check if device supports color temperature (DT8)."""
         return self.device_type == 8
@@ -225,9 +249,10 @@ class DaliDevice:
         """Return string representation."""
         groups_str = f", groups={self.groups}" if self.groups else ""
         instances_str = f", instances={self.num_instances}" if self.num_instances else ""
+        types_str = f", all_types={self.device_types}" if self.is_multitype else ""
         return (
             f"DaliDevice(addr={self.address}, type={self.device_type}, "
-            f"name={self.device_name}, protocol={self.protocol}{groups_str}{instances_str})"
+            f"name={self.device_name}, protocol={self.protocol}{types_str}{groups_str}{instances_str})"
         )
 
 
@@ -483,7 +508,7 @@ class LunatoneClient:
                 return
             
             if not device.instances:
-                _LOGGER.error("DALI2 device at address %d has empty instances dict!", dali_address)
+                _LOGGER.debug("DALI2 device at address %d has no instances configured, ignoring event", dali_address)
                 return
             
             # Get instance info (instances stored with integer keys)
@@ -660,7 +685,7 @@ class LunatoneClient:
             except Exception as e:
                 _LOGGER.error("Reconnection failed: %s", e)
 
-    async def _send_request(self, message_type: str, data: dict[str, Any], wait_for_response: bool = False) -> Any:
+    async def _send_request(self, message_type: str, data: dict[str, Any], wait_for_response: bool = False, expected_query: list[int] | None = None) -> Any:
         """Send request in Lunatone format and optionally wait for response."""
         if not self._ws or not self._connected:
             raise ConnectionError("Not connected to Lunatone")
@@ -676,13 +701,34 @@ class LunatoneClient:
             
             # If waiting for response, get it from the queue
             if wait_for_response:
-                try:
-                    response = await asyncio.wait_for(self._response_queue.get(), timeout=1.5)
-                    _LOGGER.debug("Received response: %s", response)
-                    return response
-                except asyncio.TimeoutError:
-                    _LOGGER.debug("No response received (timeout after 1.5s)")
-                    return None
+                import time as _time
+                deadline = _time.monotonic() + 2.0  # overall 2-second ceiling
+                while True:
+                    remaining = deadline - _time.monotonic()
+                    if remaining <= 0:
+                        _LOGGER.debug("No response received (overall timeout) for query %s", expected_query)
+                        return None
+                    try:
+                        response = await asyncio.wait_for(
+                            self._response_queue.get(), timeout=min(1.5, remaining)
+                        )
+                        # If we know which query this answer belongs to, validate it.
+                        # The gateway echoes the original query bytes in the "queryData" field
+                        # of every daliAnswer.  Without this check a delayed answer from a
+                        # previous address scan can silently corrupt the current result.
+                        if expected_query is not None:
+                            query_data = response.get("queryData")
+                            if query_data != expected_query:
+                                _LOGGER.debug(
+                                    "Discarding stale daliAnswer: expected queryData=%s, got queryData=%s",
+                                    expected_query, query_data,
+                                )
+                                continue  # pull the next entry from the queue
+                        _LOGGER.debug("Received response: %s", response)
+                        return response
+                    except asyncio.TimeoutError:
+                        _LOGGER.debug("No response received (timeout) for query %s", expected_query)
+                        return None
             else:
                 # Small delay for command processing
                 await asyncio.sleep(0.05)
@@ -712,7 +758,11 @@ class LunatoneClient:
             "daliData": dali_data,
         }
         
-        return await self._send_request("daliFrame", data, wait_for_response=wait_for_answer)
+        return await self._send_request(
+            "daliFrame", data,
+            wait_for_response=wait_for_answer,
+            expected_query=dali_data if wait_for_answer else None,
+        )
 
     async def scan_devices(self, line: int = 0, scan_groups: bool = True, scan_instances: bool = True) -> dict[tuple[str, int], DaliDevice]:
         """Scan for DALI devices on the bus."""
@@ -739,12 +789,83 @@ class LunatoneClient:
                     )
 
                     device_type = self._extract_response_value(result)
-                    # Skip if no response (None), MASK (255), or invalid
-                    if device_type is None or device_type == 255:
-                        continue
 
-                    # Get device name from type
+                    # Handle multi-type DALI gear (IEC 62386-102 §9.10.8):
+                    # Gear supporting multiple Device Types responds with MASK (255) to
+                    # "Query Device Type".  Confirm presence via "Query Status", then
+                    # detect the best supported type.  We prefer DT8 (colour control)
+                    # when available because it offers the richest control.
+                    if device_type is None:
+                        continue  # No device at this address
+
                     from .const import DALI_DEVICE_TYPES
+                    detected_types: list[int] = []
+
+                    if device_type == 255:
+                        # --- Multi-type gear detected ---
+                        # IEC 62386-102: QUERY DEVICE TYPE returns MASK (255) when gear
+                        # supports more than one device type.
+                        #
+                        # CRITICAL: QUERY NEXT DEVICE TYPE (cmd 167) MUST follow
+                        # QUERY DEVICE TYPE without any intervening DALI commands.
+                        # ANY other command (including QUERY STATUS) invalidates the
+                        # device type iterator.  The Cockpit issues QUERY NEXT DEVICE
+                        # TYPE with only DALI-bus RTT (~50 ms) between calls.
+                        # We use 20 ms extra sleep to stay well within that window.
+                        for _attempt in range(10):  # at most 10 device types
+                            await asyncio.sleep(0.02)
+                            ndt_result = await self._send_dali_frame(
+                                line,
+                                [(address << 1) | 1, CMD_QUERY_NEXT_DEVICE_TYPE],
+                                wait_for_answer=True,
+                            )
+                            ndt_val = self._extract_response_value(ndt_result)
+                            if ndt_val is None or ndt_val == 254:
+                                break  # No reply or end-of-list
+                            if ndt_val != 255 and ndt_val not in detected_types:
+                                detected_types.append(ndt_val)
+
+                        # Strip bus-collision artefact 0x55 (wired-AND of all slaves)
+                        detected_types = [t for t in detected_types if t != 0x55]
+
+                        # DT8 explicit probe: if the iterator didn't enumerate DT8,
+                        # try ENABLE DEVICE TYPE 8 + Query Colour Type as a fallback.
+                        if 8 not in detected_types:
+                            await asyncio.sleep(0.1)
+                            await self._send_dali_frame(
+                                line, [0xC1, 8], send_twice=True
+                            )
+                            await asyncio.sleep(0.05)
+                            ct_result = await self._send_dali_frame(
+                                line,
+                                [(address << 1) | 1, CMD_DT8_QUERY_COLOUR_TYPE],
+                                wait_for_answer=True,
+                            )
+                            if self._extract_response_value(ct_result) not in (None, 255):
+                                detected_types.append(8)
+
+                        # No types detected → MASK was likely a bus collision; skip.
+                        if not detected_types:
+                            _LOGGER.debug(
+                                "Multi-type address %d: no device types found, skipping",
+                                address,
+                            )
+                            continue
+
+                        # Choose primary type: prefer DT8 > DT6 > first found
+                        PREFERRED_ORDER = [8, 6]
+                        device_type = next(
+                            (t for t in PREFERRED_ORDER if t in detected_types),
+                            detected_types[0] if detected_types else 6,
+                        )
+                        _LOGGER.info(
+                            "Multi-type device at address %d: detected_types=%s, using type %d (%s)",
+                            address, detected_types, device_type,
+                            DALI_DEVICE_TYPES.get(device_type, "Unknown"),
+                        )
+                    else:
+                        detected_types = [device_type]
+
                     device_name = DALI_DEVICE_TYPES.get(device_type, f"Unknown ({device_type})")
 
                     # Create DALI device
@@ -754,6 +875,8 @@ class LunatoneClient:
                         device_type=device_type,
                         device_name=device_name,
                     )
+                    # Store all detected types for UI display (e.g. "DALI DT6,8")
+                    device.device_types = detected_types
 
                     self._devices[("DALI", address)] = device
                     _LOGGER.debug("Found DALI device at address %d: type %d (%s)", address, device_type, device_name)
@@ -861,7 +984,7 @@ class LunatoneClient:
             # Phase 3: Query group membership for DALI devices only
             if scan_groups:
                 _LOGGER.info("Phase 3: Scanning group membership...")
-                for (protocol, address) in self._devices.keys():
+                for (protocol, address) in list(self._devices.keys()):
                     if protocol != "DALI":
                         continue  # Groups only apply to DALI devices
                     await asyncio.sleep(0.2)
@@ -924,8 +1047,10 @@ class LunatoneClient:
         dali_devices = [(protocol, addr) for protocol, addr in self._devices.keys() if protocol == "DALI"]
         
         for protocol, address in dali_devices:
-            device = self._devices[(protocol, address)]
-            
+            device = self._devices.get((protocol, address))
+            if device is None:
+                continue
+
             try:
                 # Query brightness
                 await asyncio.sleep(0.15)  # Small delay between queries

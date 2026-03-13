@@ -55,6 +55,12 @@ CMD_RECALL_MIN: Final = 6
 CMD_GO_TO_LAST: Final = 10
 CMD_QUERY_STATUS: Final = 144
 CMD_QUERY_DEVICE_TYPE: Final = 153
+CMD_QUERY_NEXT_DEVICE_TYPE: Final = 167  # DALI-2: IEC 62386-102 §Table 15 cmd 0xA7 (verified via Lunatone DALI Cockpit capture)
+
+# DT8 colour control commands (IEC 62386-209)
+# These are 16-bit gear commands, but REQUIRE "Enable Device Type 8" first:
+#   broadcast frame [0xC1, 8] = ENABLE DEVICE TYPE 8, then [addr<<1|1, cmd]
+CMD_DT8_QUERY_COLOUR_TYPE: Final = 0xF0  # Query Colour Type – returns bitmask of DT8 features (cmd 240)
 CMD_QUERY_ACTUAL_LEVEL: Final = 160
 CMD_QUERY_MAX_LEVEL: Final = 161
 CMD_QUERY_MIN_LEVEL: Final = 162

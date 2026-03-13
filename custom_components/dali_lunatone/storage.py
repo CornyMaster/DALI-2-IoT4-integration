@@ -109,6 +109,7 @@ class DeviceStorage:
             "groups": device.groups,
             "num_instances": device.num_instances,
             "instances": device.instances,
+            "device_types": device.device_types if hasattr(device, "device_types") else [],
             "gtin": device.gtin if hasattr(device, "gtin") else None,
             "firmware_version": device.firmware_version if hasattr(device, "firmware_version") else None,
             "hardware_version": device.hardware_version if hasattr(device, "hardware_version") else None,
@@ -135,6 +136,7 @@ class DeviceStorage:
             # Convert instance keys from strings to integers (JSON stores them as strings)
             instances_data = data.get("instances", {})
             device.instances = {int(k): v for k, v in instances_data.items()} if instances_data else {}
+            device.device_types = data.get("device_types", [])
             device.gtin = data.get("gtin")
             device.firmware_version = data.get("firmware_version")
             device.hardware_version = data.get("hardware_version")
