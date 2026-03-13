@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.4-beta-3] - 2026-03-13
+
+### Fixed
+- **DALI iterator disruption mid-enumeration** - Previous retry logic only triggered when `detected_types` was completely empty. However the bus can be disturbed after the first type (e.g. `6`) is returned but before the rest (`8, 50, 51, 52, 254`) arrive — causing the code to accept a truncated `[DT6]` result as complete. Fixed by tracking the `254` end-of-list sentinel: enumeration is only considered complete when `254` is received. Any `None`/no-response exit now triggers a retry, regardless of how many types were already collected.
+
 ## [0.1.4-beta-2] - 2026-03-13
 
 ### Fixed

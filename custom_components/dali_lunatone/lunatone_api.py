@@ -812,12 +812,18 @@ class LunatoneClient:
                         # controller sharing the same bus/gateway — invalidates the
                         # device type iterator.
                         #
-                        # When the iterator is disrupted (detected_types comes back
-                        # empty), we retry by re-sending QUERY DEVICE TYPE (which
-                        # resets the iterator in the device firmware) and trying again.
-                        # Up to MAX_SCAN_RETRIES attempts, with a longer wait before
-                        # each retry to let competing bus traffic settle.
+                        # The iterator can be disrupted at ANY point mid-enumeration.
+                        # For example, device reports [6, 8, 50, 51, 52, 254].
+                        # If the bus is disturbed after returning 6, we receive [6]
+                        # then None — and would wrongly accept just [DT6].
+                        #
+                        # Fix: only consider enumeration complete when the device
+                        # sends the 254 end-of-list sentinel.  A None/no-response
+                        # exit means the iterator was disrupted mid-enumeration and
+                        # we must retry (re-send QUERY DEVICE TYPE to reset the
+                        # firmware iterator, then wait for bus to clear).
                         MAX_SCAN_RETRIES = 3
+                        iterator_complete = False
                         for _scan_retry in range(MAX_SCAN_RETRIES):
                             if _scan_retry > 0:
                                 # Wait for competing bus traffic to clear, then re-init
@@ -837,6 +843,7 @@ class LunatoneClient:
                                 )
 
                             detected_types = []
+                            iterator_complete = False
                             for _attempt in range(10):  # at most 10 device types
                                 await asyncio.sleep(0.02)
                                 ndt_result = await self._send_dali_frame(
@@ -845,16 +852,25 @@ class LunatoneClient:
                                     wait_for_answer=True,
                                 )
                                 ndt_val = self._extract_response_value(ndt_result)
-                                if ndt_val is None or ndt_val == 254:
-                                    break  # No reply or end-of-list
+                                if ndt_val == 254:
+                                    iterator_complete = True  # clean end-of-list
+                                    break
+                                if ndt_val is None:
+                                    break  # no response — iterator disrupted
                                 if ndt_val != 255 and ndt_val not in detected_types:
                                     detected_types.append(ndt_val)
 
                             # Strip bus-collision artefact 0x55 (wired-AND of all slaves)
                             detected_types = [t for t in detected_types if t != 0x55]
 
-                            if detected_types:
-                                break  # Successfully enumerated — no need to retry
+                            if iterator_complete:
+                                break  # full list received — no need to retry
+
+                            _LOGGER.debug(
+                                "Multi-type address %d: iterator disrupted mid-enumeration "
+                                "(got %s so far), retrying",
+                                address, detected_types,
+                            )
 
                         # DT8 explicit probe: if the iterator didn't enumerate DT8,
                         # try ENABLE DEVICE TYPE 8 + Query Colour Type as a fallback.
