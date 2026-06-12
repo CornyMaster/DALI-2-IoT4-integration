@@ -1,13 +1,15 @@
 {
   "domain": "dali_lunatone",
-  "name": "Lunatone DALI-2 IoT",
-  "codeowners": ["@Martsola"],
+  "name": "Lunatone DALI-2 IoT4",
+  "codeowners": [
+    "@CornyMaster"
+  ],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/Martsola/dali-lunatone-integration",
+  "documentation": "https://github.com/CornyMaster/DALI-2-IoT4-integration",
   "integration_type": "device",
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/Martsola/dali-lunatone-integration/issues",
-  "requirements": ["websockets>=12.0"],
-  "version": "v0.1.4-beta-3"
+  "issue_tracker": "https://github.com/CornyMaster/DALI-2-IoT4-integration/issues",
+  "requirements": [],
+  "version": "v0.2.0-beta-1"
 }

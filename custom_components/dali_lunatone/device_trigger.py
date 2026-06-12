@@ -1,12 +1,14 @@
-"""Provides device triggers for DALI-2 input devices (push buttons, switches, occupancy sensors).
+"""Device triggers for DALI-2 input devices (buttons, switches, occupancy).
 
-Each DALI-2 device can have multiple instances (e.g. 4 push buttons). Triggers use
-CONF_SUBTYPE to let the user select which instance to trigger on, shown in the
-automation UI as a second dropdown after the event type.
+Input devices are registered per (line, address) — registry identifier
+``{entry_id}_line{line}_input_{address}`` — so identical short addresses on
+different DALI lines resolve to different HA devices and never cross-trigger.
 """
+
 from __future__ import annotations
 
 import logging
+import re
 
 import voluptuous as vol
 
@@ -30,7 +32,9 @@ from .const import (
     DALI_EVENT,
     DATA_COORDINATOR,
     DOMAIN,
-    INSTANCE_TYPE_NAMES,
+    INSTANCE_TYPE_OCCUPANCY,
+    INSTANCE_TYPE_PUSH_BUTTON,
+    INSTANCE_TYPE_SWITCH,
     OCCUPANCY_EVENT_TYPE_LIST,
 )
 
@@ -43,95 +47,68 @@ TRIGGER_SCHEMA = DEVICE_TRIGGER_BASE_SCHEMA.extend(
     }
 )
 
+# Matches "{entry_id}_line{line}_input_{address}"
+INPUT_IDENTIFIER_RE = re.compile(r"^(?P<entry_id>.+)_line(?P<line>\d+)_input_(?P<address>\d+)$")
+
+
+def parse_input_identifier(identifier: str) -> tuple[str, int, int] | None:
+    """Parse an input device registry identifier into (entry_id, line, address)."""
+    match = INPUT_IDENTIFIER_RE.match(identifier)
+    if not match:
+        return None
+    return (
+        match.group("entry_id"),
+        int(match.group("line")),
+        int(match.group("address")),
+    )
+
 
 def _get_device_instances(
-    hass: HomeAssistant, protocol: str, address: int
+    hass: HomeAssistant, line: int, address: int
 ) -> dict[int, int]:
-    """Get instance number -> instance type mapping for a DALI device.
-
-    Returns e.g. {0: 1, 1: 1, 2: 1, 3: 1} for a 4-button device (four iT1 instances).
-    """
-    instances: dict[int, int] = {}
-    for _entry_id, entry_data in hass.data.get(DOMAIN, {}).items():
+    """Map instance number -> instance type for one input device."""
+    for entry_data in hass.data.get(DOMAIN, {}).values():
         if not isinstance(entry_data, dict):
             continue
         coordinator = entry_data.get(DATA_COORDINATOR)
         if coordinator and coordinator.data:
-            device_key = (protocol, address)
-            if device_key in coordinator.data:
-                dali_device = coordinator.data[device_key]
-                if hasattr(dali_device, "instances") and dali_device.instances:
-                    for inst_num, inst_data in dali_device.instances.items():
-                        instances[inst_num] = inst_data.get("type", 0)
-    return instances
-
-
-def _make_subtype_key(instance_num: int, instance_type: int) -> str:
-    """Create a subtype key like 'instance_0' for internal matching."""
-    return f"instance_{instance_num}"
+            input_device = coordinator.data.inputs.get((line, address))
+            if input_device:
+                return {
+                    num: instance.instance_type
+                    for num, instance in input_device.instances.items()
+                }
+    return {}
 
 
 async def async_get_triggers(
     hass: HomeAssistant, device_id: str
 ) -> list[dict[str, str]]:
-    """List device triggers for DALI-2 input devices.
-
-    Returns triggers for devices that have push button (iT1),
-    switch (iT2), or occupancy sensor (iT3) instances.
-    Each instance generates its own set of triggers so the user
-    can select which specific button/sensor to respond to.
-    """
+    """List device triggers for one DALI-2 input device."""
     device_registry = dr.async_get(hass)
     device = device_registry.async_get(device_id)
-
     if device is None:
         return []
 
-    # Find our integration's identifier (format: "DALI2_<address>")
-    dali_identifier = None
+    parsed = None
     for identifier in device.identifiers:
         if identifier[0] == DOMAIN:
-            dali_identifier = identifier[1]
-            break
-
-    if not dali_identifier:
+            parsed = parse_input_identifier(identifier[1])
+            if parsed:
+                break
+    if not parsed:
         return []
+    _entry_id, line, address = parsed
 
-    # Parse protocol and address from identifier
-    parts = dali_identifier.split("_")
-    if len(parts) != 2:
-        return []  # Not a device-level entry (could be the gateway)
-
-    protocol = parts[0]
-    if protocol != "DALI2":
-        return []  # Only DALI2 devices have input instances
-
-    try:
-        address = int(parts[1])
-    except ValueError:
-        return []
-
-    # Get instances on this device: {instance_num: instance_type}
-    instances = _get_device_instances(hass, protocol, address)
-
-    if not instances:
-        return []
-
+    instances = _get_device_instances(hass, line, address)
     triggers = []
-
-    for inst_num, inst_type in sorted(instances.items()):
-        subtype_key = _make_subtype_key(inst_num, inst_type)
-
-        # Select event types based on instance type
-        if inst_type in (1, 2):
-            # iT1 Push Button or iT2 Switch -> button event triggers
+    for instance_num, instance_type in sorted(instances.items()):
+        if instance_type in (INSTANCE_TYPE_PUSH_BUTTON, INSTANCE_TYPE_SWITCH):
             event_types = BUTTON_EVENT_TYPE_LIST
-        elif inst_type == 3:
-            # iT3 Occupancy Sensor -> presence event triggers
+        elif instance_type == INSTANCE_TYPE_OCCUPANCY:
             event_types = OCCUPANCY_EVENT_TYPE_LIST
         else:
             continue
-
         for event_type in event_types:
             triggers.append(
                 {
@@ -139,10 +116,9 @@ async def async_get_triggers(
                     CONF_DEVICE_ID: device_id,
                     CONF_DOMAIN: DOMAIN,
                     CONF_TYPE: event_type,
-                    CONF_SUBTYPE: subtype_key,
+                    CONF_SUBTYPE: f"instance_{instance_num}",
                 }
             )
-
     return triggers
 
 
@@ -152,11 +128,7 @@ async def async_attach_trigger(
     action: TriggerActionType,
     trigger_info: TriggerInfo,
 ) -> CALLBACK_TYPE:
-    """Attach a trigger to listen for DALI-2 device events.
-
-    Matches on device_id, event type, AND instance (subtype).
-    """
-    # Extract instance number from subtype key "instance_N"
+    """Attach a trigger matching device_id, event type and instance."""
     subtype = config[CONF_SUBTYPE]
     try:
         instance_num = int(subtype.split("_", 1)[1])

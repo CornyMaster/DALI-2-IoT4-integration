@@ -1,5 +1,5 @@
 name: Bug Report
-description: Report a bug with the Lunatone DALI-2 IoT Gateway integration
+description: Report a bug with the Lunatone DALI-2 IoT4 Gateway integration
 labels: ["bug"]
 body:
   - type: markdown
@@ -68,7 +68,7 @@ body:
     id: gateway_version
     attributes:
       label: Gateway Firmware Version
-      description: What firmware version is your Lunatone DALI-2 IoT Gateway running?
+      description: What firmware version is your Lunatone DALI-2 IoT(4) Gateway running?
       placeholder: e.g., 1.2.3
 
   - type: dropdown

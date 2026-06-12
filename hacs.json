@@ -1,5 +1,5 @@
 {
-  "name": "Lunatone DALI-2 IoT Gateway",
+  "name": "Lunatone DALI-2 IoT4 Gateway",
   "content_in_root": false,
   "render_readme": true,
   "homeassistant": "2023.1.0",

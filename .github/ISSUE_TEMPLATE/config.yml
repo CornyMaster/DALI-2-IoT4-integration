@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Lunatone DALI-2 IoT Gateway Documentation
+  - name: Lunatone DALI-2 IoT4 Gateway Documentation
     url: https://www.lunatone.com/wp-content/uploads/2021/08/89453886_DALI2_IOT_API_Dokumentation_EN_M0023.pdf
-    about: Official Lunatone DALI-2 IoT Gateway API documentation
+    about: Official Lunatone DALI-2 IoT Gateway API documentation (IoT4 compatible)
   - name: Home Assistant Community
     url: https://community.home-assistant.io/
     about: Ask questions and get support from the Home Assistant community
