@@ -1,5 +1,9 @@
 # Lunatone DALI-2 IoT4 — Home Assistant Integration
 
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=flat-square)](https://github.com/hacs/integration)
+
+[![Open your Home Assistant instance and open this repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=CornyMaster&repository=DALI-2-IoT4-integration&category=integration)
+
 Home Assistant custom integration for the **Lunatone DALI-2 IoT4 gateway**
 (multi-line) and the classic single-line DALI-2 IoT gateway.
 
@@ -66,9 +70,14 @@ optional all-lines broadcast entity.
 
 ## Installation
 
-Copy `custom_components/dali_lunatone` into your Home Assistant
-`config/custom_components/` directory and restart, or install via HACS as a
-custom repository (`CornyMaster/DALI-2-IoT4-integration`).
+**HACS (recommended):** click the badge above, or add
+`https://github.com/CornyMaster/DALI-2-IoT4-integration` manually as a custom
+repository (category "Integration") and install "Lunatone DALI-2 IoT4".
+
+[![Open your Home Assistant instance and open this repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=CornyMaster&repository=DALI-2-IoT4-integration&category=integration)
+
+**Manual:** copy `custom_components/dali_lunatone` into your Home Assistant
+`config/custom_components/` directory and restart.
 
 ## Breaking changes vs. upstream (v0.2.0)
 
