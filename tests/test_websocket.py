@@ -177,7 +177,7 @@ async def test_unknown_message_types_are_ignored(listener, events):
 # ---------------------------------------------------------------------------
 
 
-async def test_listener_receives_and_reconnects(unused_tcp_port_factory=None):
+async def test_listener_receives_and_reconnects(socket_enabled):
     """Listener connects, receives a message, survives a server-side close."""
     connections = 0
 

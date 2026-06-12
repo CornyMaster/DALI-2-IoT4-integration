@@ -1,4 +1,5 @@
-"""Sensor platform for Lunatone DALI-2 IoT integration."""
+"""Sensors for DALI-2 light sensors, keyed by (line, address, instance)."""
+
 from __future__ import annotations
 
 import logging
@@ -11,12 +12,14 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import LIGHT_LUX
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
-from .coordinator import LunatoneCoordinator
+from .const import DATA_COORDINATOR, DOMAIN, INSTANCE_TYPE_LIGHT_SENSOR
+from .coordinator import LunatoneCoordinator, input_device_identifier
+from .models import InputInstance
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,38 +29,43 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up DALI2 sensors from a config entry."""
-    coordinator: LunatoneCoordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
+    """Set up DALI-2 light sensors, added dynamically on discovery."""
+    coordinator: LunatoneCoordinator = hass.data[DOMAIN][entry.entry_id][
+        DATA_COORDINATOR
+    ]
 
-    entities = []
-    for (protocol, address), device in coordinator.client.devices.items():
-        if protocol == "DALI2" and device.instances:
-            for instance_num, instance_data in device.instances.items():
-                instance_type = instance_data.get("type", 0)
-                
-                # iT4 = Light Sensor (type 4)
-                if instance_type == 4:
-                    # Ensure instance_num is int
-                    inst_num = int(instance_num) if isinstance(instance_num, str) else instance_num
-                    entities.append(
-                        DaliLightSensor(
-                            coordinator,
-                            protocol,
-                            address,
-                            inst_num,
-                            device,
-                            entry.entry_id,
-                        )
-                    )
+    known: set[tuple[int, int, int]] = set()
 
-    if entities:
-        async_add_entities(entities)
-        _LOGGER.info("Added %d DALI2 sensors", len(entities))
+    @callback
+    def _async_sync_entities() -> None:
+        data = coordinator.data
+        if not data:
+            return
+        new_entities = []
+        for (line, address), input_device in data.inputs.items():
+            for instance_num, instance in input_device.instances.items():
+                key = (line, address, instance_num)
+                if (
+                    key in known
+                    or instance.instance_type != INSTANCE_TYPE_LIGHT_SENSOR
+                ):
+                    continue
+                known.add(key)
+                new_entities.append(
+                    DaliLightSensor(coordinator, entry, line, address, instance_num)
+                )
+        if new_entities:
+            _LOGGER.debug("Adding %d DALI-2 light sensors", len(new_entities))
+            async_add_entities(new_entities)
+
+    _async_sync_entities()
+    entry.async_on_unload(coordinator.async_add_listener(_async_sync_entities))
 
 
-class DaliLightSensor(CoordinatorEntity, SensorEntity):
-    """Representation of a DALI2 light sensor."""
+class DaliLightSensor(CoordinatorEntity[LunatoneCoordinator], SensorEntity):
+    """A DALI-2 light (lux) sensor instance on one line."""
 
+    _attr_has_entity_name = True
     _attr_device_class = SensorDeviceClass.ILLUMINANCE
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = LIGHT_LUX
@@ -65,72 +73,63 @@ class DaliLightSensor(CoordinatorEntity, SensorEntity):
     def __init__(
         self,
         coordinator: LunatoneCoordinator,
-        protocol: str,
+        entry: ConfigEntry,
+        line: int,
         address: int,
         instance_num: int,
-        device: Any,
-        entry_id: str,
     ) -> None:
-        """Initialize the light sensor."""
         super().__init__(coordinator)
-        self._protocol = protocol
+        self._entry = entry
+        self._line = line
         self._address = address
         self._instance_num = instance_num
-        self._device = device
-        self._attr_has_entity_name = True
-
-        # Unique ID
         self._attr_unique_id = (
-            f"{entry_id}_{protocol}_{address}_instance_{instance_num}"
+            f"{entry.entry_id}_line{line}_input_{address}_inst{instance_num}"
         )
-
-        # Entity name
-        self._attr_name = "Illuminance"
+        self._attr_name = f"Light Level {instance_num}"
 
     @property
-    def device_info(self) -> dict[str, Any]:
-        """Return device info, reading fresh data from coordinator."""
-        device_key = (self._protocol, self._address)
-        device_info_dict = {
-            "identifiers": {(DOMAIN, f"{self._protocol}_{self._address}")},
-            "name": f"{self._protocol} Address {self._address}",
-            "model": self._device.device_name,
-            "via_device": (DOMAIN, self.coordinator.config_entry.entry_id),
-        }
-        
-        # Try to get fresh device data from coordinator
-        if device_key in self.coordinator.data:
-            device = self.coordinator.data[device_key]
-            # Add extended device information if available
-            if hasattr(device, "manufacturer") and device.manufacturer:
-                device_info_dict["manufacturer"] = device.manufacturer
-            if hasattr(device, "gtin_decimal") and device.gtin_decimal:
-                device_info_dict["model"] = f"{device.device_name} (GTIN: {device.gtin_decimal})"
-            if hasattr(device, "firmware_version") and device.firmware_version:
-                device_info_dict["sw_version"] = device.firmware_version
-            if hasattr(device, "hardware_version") and device.hardware_version:
-                device_info_dict["hw_version"] = device.hardware_version
-            if hasattr(device, "serial_number") and device.serial_number:
-                device_info_dict["serial_number"] = device.serial_number
-        
-        return device_info_dict
+    def _instance(self) -> InputInstance | None:
+        data = self.coordinator.data
+        if not data:
+            return None
+        input_device = data.inputs.get((self._line, self._address))
+        return input_device.instances.get(self._instance_num) if input_device else None
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        data = self.coordinator.data
+        input_device = data.inputs.get((self._line, self._address)) if data else None
+        return DeviceInfo(
+            identifiers={
+                (
+                    DOMAIN,
+                    input_device_identifier(
+                        self._entry.entry_id, self._line, self._address
+                    ),
+                )
+            },
+            name=input_device.name
+            if input_device
+            else f"Line {self._line} Input {self._address}",
+            model="DALI-2 Input Device",
+            manufacturer="Lunatone",
+            via_device=(DOMAIN, self._entry.entry_id),
+        )
 
     @property
     def native_value(self) -> float | None:
-        """Return the state of the sensor."""
-        # Check coordinator data for this instance state
-        device_key = (self._protocol, self._address)
-        if device_key in self.coordinator.data:
-            device = self.coordinator.data[device_key]
-            if hasattr(device, "instances") and device.instances:
-                # instances dict uses integer keys
-                instance = device.instances.get(self._instance_num)
-                if instance:
-                    return instance.get("value")
-        return None
+        instance = self._instance
+        return instance.value if instance else None
 
     @property
     def available(self) -> bool:
-        """Return if entity is available."""
-        device_key = (self._protocol, self._address)
-        return device_key in self.coordinator.data
+        return self._instance is not None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "line": self._line,
+            "address": self._address,
+            "instance": self._instance_num,
+        }

@@ -1,464 +1,424 @@
-"""DataUpdateCoordinator for Lunatone DALI-2 IoT integration."""
+"""DataUpdateCoordinator for the Lunatone DALI-2 IoT(4) integration.
+
+The gateway's REST inventory (GET /devices) is the source of truth: it is
+line-aware and already contains live state for every device. The coordinator
+polls it and merges websocket push events (device status changes and DALI-2
+input events) in between polls.
+"""
+
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta
 import logging
+from datetime import timedelta
 from typing import Any
 
-from homeassistant.components import persistent_notification
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .const import CONF_BACKGROUND_STATUS_POLLING, CONF_POLLING_INTERVAL, DALI_EVENT, DEFAULT_POLLING_INTERVAL, DOMAIN
-from .lunatone_api import DaliDevice, LunatoneClient
-from .storage import DeviceStorage
+from .api import LunatoneApiError, LunatoneRestClient
+from .const import (
+    BUTTON_ACTIVE_EVENTS,
+    CONF_LINES,
+    CONF_POLLING_INTERVAL,
+    DALI_EVENT,
+    DEFAULT_POLLING_INTERVAL,
+    DOMAIN,
+    FEEDBACK_LED_OFF,
+    FEEDBACK_LED_ON,
+    INSTANCE_TYPE_LIGHT_SENSOR,
+    INSTANCE_TYPE_OCCUPANCY,
+    INSTANCE_TYPE_PUSH_BUTTON,
+    INSTANCE_TYPE_SWITCH,
+    MOMENTARY_EVENTS,
+    MOMENTARY_RESET_DELAY,
+)
+from .models import GatewayInfo, InputDevice, InputInstance, LunatoneData, LunatoneDevice
+from .storage import InputDeviceStore
+from .websocket import InputEvent, decode_button_event, decode_occupancy_event
 
 _LOGGER = logging.getLogger(__name__)
 
-# Momentary event types that should auto-reset the binary sensor state
-MOMENTARY_EVENTS = ("short_press", "double_press")
-MOMENTARY_RESET_DELAY = 0.5  # seconds
+SENSOR_TYPE_TO_INSTANCE_TYPE = {
+    "occupancy": INSTANCE_TYPE_OCCUPANCY,
+    "light": INSTANCE_TYPE_LIGHT_SENSOR,
+}
 
 
-class LunatoneCoordinator(DataUpdateCoordinator[dict[tuple[str, int], DaliDevice]]):
-    """Class to manage fetching Lunatone DALI data."""
+def gear_device_identifier(entry_id: str, line: int, address: int) -> str:
+    """Registry identifier for a control-gear device (stable bus identity)."""
+    return f"{entry_id}_line{line}_addr{address}"
 
-    def __init__(self, hass: HomeAssistant, client: LunatoneClient, entry_id: str, config_entry: Any) -> None:
-        """Initialize coordinator."""
-        # Get polling settings from options
-        background_polling = config_entry.options.get(CONF_BACKGROUND_STATUS_POLLING, False)
-        polling_interval = config_entry.options.get(CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL)
-        
-        # Only set update_interval if background polling is enabled
+
+def input_device_identifier(entry_id: str, line: int, address: int) -> str:
+    """Registry identifier for a DALI-2 input device."""
+    return f"{entry_id}_line{line}_input_{address}"
+
+
+class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
+    """Polls the REST inventory and merges websocket push events."""
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        client: LunatoneRestClient,
+    ) -> None:
+        polling_interval = entry.options.get(
+            CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL
+        )
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(seconds=polling_interval) if background_polling else None,
+            update_interval=timedelta(seconds=polling_interval),
+            config_entry=entry,
         )
+        self.entry = entry
         self.client = client
-        self.storage = DeviceStorage(hass, entry_id)
-        self._devices_loaded = False
-        self._background_polling = background_polling
-        self._polling_interval = polling_interval
-        self._last_full_scan = 0.0  # Timestamp of last full state scan
-        self._led_states: dict[tuple[int, int], bool] = {}  # (address, instance) -> is_on
-        self._scan_in_progress = False
-        
-        # Register callback for real-time events
-        self.client.add_callback(self._handle_device_event)
+        lines = entry.options.get(CONF_LINES)
+        self.lines: set[int] | None = {int(line) for line in lines} if lines else None
+        self.info: GatewayInfo | None = None
+        self._inputs: dict[tuple[int, int], InputDevice] = {}
+        self._inputs_loaded = False
+        self._store = InputDeviceStore(hass, entry.entry_id)
+        self._led_states: dict[tuple[int, int, int], bool] = {}
 
-    async def _async_update_data(self) -> dict[tuple[str, int], DaliDevice]:
-        """Fetch data from Lunatone."""
+    # ------------------------------------------------------------------
+    # Polling
+    # ------------------------------------------------------------------
+
+    async def _async_update_data(self) -> LunatoneData:
         try:
-            if not self.client.connected:
-                raise UpdateFailed("Not connected to Lunatone device")
+            if self.info is None:
+                self.info = GatewayInfo.from_api(await self.client.async_get_info())
+            devices = await self.client.async_get_devices()
+            sensors = await self.client.async_get_sensors()
+        except LunatoneApiError as err:
+            raise UpdateFailed(str(err)) from err
 
-            # Load devices from storage on first run
-            if not self._devices_loaded:
-                _LOGGER.info("Loading devices from storage")
-                stored_devices = await self.storage.async_load()
-                
-                if stored_devices:
-                    # Restore devices from storage
-                    restored_devices = self.storage.deserialize_devices(stored_devices)
-                    self.client.devices.update(restored_devices)
-                    _LOGGER.info("Restored %d devices from storage", len(restored_devices))
-                else:
-                    _LOGGER.info("No stored devices found, use rescan_devices service to discover devices")
-                
-                self._devices_loaded = True
+        if not self._inputs_loaded:
+            stored = await self._store.async_load()
+            for key, device in stored.items():
+                self._inputs.setdefault(key, device)
+            self._inputs_loaded = True
 
-            # Check if we should do a full state scan based on configured polling interval
-            # Only poll if background polling is enabled
-            if self._background_polling:
-                import time
-                current_time = time.time()
-                if current_time - self._last_full_scan >= self._polling_interval:
-                    if self.client.devices:
-                        _LOGGER.debug("Performing periodic state scan (interval: %ds)", self._polling_interval)
-                        await self.client.update_device_states()
-                        self._last_full_scan = current_time
-
-            return self.client.devices
-
-        except Exception as err:
-            raise UpdateFailed(f"Error communicating with Lunatone: {err}") from err
-
-    async def async_set_brightness(
-        self, address: int, brightness: int
-    ) -> bool:
-        """Set device brightness."""
-        success = await self.client.set_brightness(address, brightness)
-        if success:
-            # Update device state immediately for DALI device without scanning
-            key = ("DALI", address)
-            if key in self.client.devices:
-                self.client.devices[key].brightness = brightness
-                self.client.devices[key].is_on = brightness > 0
-                # Notify coordinator of state change without triggering a scan
-                self.async_set_updated_data(self.client.devices)
-        return success
-
-    async def async_turn_on(self, address: int) -> bool:
-        """Turn on device."""
-        success = await self.client.turn_on(address)
-        if success:
-            key = ("DALI", address)
-            if key in self.client.devices:
-                self.client.devices[key].is_on = True
-                # Notify coordinator of state change without triggering a scan
-                self.async_set_updated_data(self.client.devices)
-        return success
-
-    async def async_turn_off(self, address: int) -> bool:
-        """Turn off device."""
-        success = await self.client.turn_off(address)
-        if success:
-            key = ("DALI", address)
-            if key in self.client.devices:
-                self.client.devices[key].is_on = False
-                self.client.devices[key].brightness = 0
-                # Notify coordinator of state change without triggering a scan
-                self.async_set_updated_data(self.client.devices)
-        return success
-
-    async def async_set_color_temp(
-        self, address: int, kelvin: int
-    ) -> bool:
-        """Set device color temperature."""
-        success = await self.client.set_color_temp(address, kelvin)
-        if success:
-            key = ("DALI", address)
-            if key in self.client.devices:
-                self.client.devices[key].color_temp = kelvin
-                # Notify coordinator of state change without triggering a scan
-                self.async_set_updated_data(self.client.devices)
-        return success
-
-    async def async_rescan_devices(self) -> dict[tuple[str, int], DaliDevice]:
-        """Rescan for devices on the bus."""
-        if self._scan_in_progress:
-            _LOGGER.warning("Scan already in progress, ignoring request")
-            persistent_notification.async_create(
-                self.hass,
-                "A scan is already running. Please wait for it to complete before starting a new one.",
-                title="DALI Scan Already In Progress",
-                notification_id=f"{DOMAIN}_scan_already_running",
-            )
-            return self.client.devices
-
-        self._scan_in_progress = True
-        _LOGGER.info("Rescanning for DALI devices")
-
-        persistent_notification.async_create(
-            self.hass,
-            "Manual scan started. This may take up to a minute while the DALI bus is queried.",
-            title="DALI Scan In Progress",
-            notification_id=f"{DOMAIN}_scan_progress",
-        )
-        
-        # Get old devices for comparison
-        old_devices = set(self.client.devices.keys())
-        
-        try:
-            # Perform scan
-            devices = await self.client.scan_devices()
-        except ConnectionError as e:
-            _LOGGER.error("Cannot rescan: %s", e)
-            self._scan_in_progress = False
-            persistent_notification.async_dismiss(self.hass, f"{DOMAIN}_scan_progress")
-            persistent_notification.async_create(
-                self.hass,
-                f"Rescan failed: {e}. Please check that the gateway is online and try again.",
-                title="DALI Rescan Failed",
-                notification_id=f"{DOMAIN}_rescan_failed",
-            )
-            return self.client.devices
-        except Exception as e:
-            _LOGGER.error("Error during rescan: %s", e)
-            self._scan_in_progress = False
-            persistent_notification.async_dismiss(self.hass, f"{DOMAIN}_scan_progress")
-            persistent_notification.async_create(
-                self.hass,
-                f"Rescan error: {e}",
-                title="DALI Rescan Error",
-                notification_id=f"{DOMAIN}_rescan_error",
-            )
-            return self.client.devices
-        
-        # Get new devices after scan
-        new_devices = set(self.client.devices.keys())
-        
-        # Find newly discovered and missing devices
-        added_devices = new_devices - old_devices
-        missing_devices = old_devices - new_devices
-        
-        # Save to storage
-        serialized_devices = {}
-        for key, device in self.client.devices.items():
-            serialized_devices[key] = self.storage.serialize_device(device)
-        
-        await self.storage.async_save(serialized_devices, datetime.now().isoformat())
-        _LOGGER.info("Saved %d devices to storage", len(serialized_devices))
-        
-        # Report changes
-        if added_devices:
-            await self._report_new_devices(added_devices)
-        
-        if missing_devices:
-            await self._report_missing_devices(missing_devices)
-        
-        # Dismiss in-progress notification and show result
-        self._scan_in_progress = False
-        persistent_notification.async_dismiss(self.hass, f"{DOMAIN}_scan_progress")
-        persistent_notification.async_dismiss(self.hass, f"{DOMAIN}_scan_already_running")
-        added_count = len(added_devices)
-        missing_count = len(missing_devices)
-        total_count = len(self.client.devices)
-        if added_count or missing_count:
-            summary = (
-                f"Scan complete: {total_count} devices found.\n"
-                + (f"  • {added_count} newly discovered\n" if added_count else "")
-                + (f"  • {missing_count} no longer present\n" if missing_count else "")
-            )
-        else:
-            summary = f"Scan complete: {total_count} devices found, no changes."
-        persistent_notification.async_create(
-            self.hass,
-            summary,
-            title="DALI Scan Complete",
-            notification_id=f"{DOMAIN}_scan_complete",
+        self._merge_sensors(sensors)
+        return LunatoneData.from_api(
+            self.info, devices, lines=self.lines, inputs=self._inputs
         )
 
-        await self.async_request_refresh()
-        return devices
-    
-    async def _report_new_devices(self, device_keys: set[tuple[str, int]]) -> None:
-        """Create notifications for newly discovered devices."""
-        for key in device_keys:
-            device = self.client.devices.get(key)
-            if device:
-                types_label = device.device_types_label if hasattr(device, "device_types_label") else f"DT{device.device_type}"
-                persistent_notification.async_create(
-                    self.hass,
-                    f"New {device.protocol} device found:\n"
-                    f"Type: {types_label}\n"
-                    f"Address: {device.address}\n"
-                    f"Name: {device.device_name}",
-                    "DALI Device Discovered",
-                    f"dali_new_device_{device.protocol}_{device.address}",
-                )
-                _LOGGER.info(
-                    "New device discovered: %s %s at address %d",
-                    device.protocol,
-                    types_label,
-                    device.address,
-                )
-    
-    async def _report_missing_devices(self, device_keys: set[tuple[str, int]]) -> None:
-        """Create repair issues for missing devices."""
-        from homeassistant.helpers import issue_registry as ir
-        
-        for key in device_keys:
-            protocol, address = key
-            
-            # Look up device name/type from old backup (stored in client before scan cleared it)
-            # After scan, client.devices has the NEW devices, so missing ones won't be there.
-            # We use the coordinator data which still has the pre-scan snapshot.
-            old_device = (self.data or {}).get(key)
-            device_name = old_device.device_name if old_device else "Unknown"
-            device_type = old_device.device_type if old_device else "Unknown"
-
-            # Skip repair issue creation for devices that were never properly identified
-            # (stale storage artefacts from failed scans show device_name="Unknown")
-            if device_name in ("Unknown", None) or str(device_name).startswith("Unknown ("):
-                _LOGGER.debug(
-                    "Stale/unidentified device removed from storage: %s at address %d",
-                    protocol, address,
-                )
+    def _merge_sensors(self, sensors: list[dict[str, Any]]) -> None:
+        """Type and update input instances from GET /sensors."""
+        for sensor in sensors:
+            address_info = sensor.get("daliSensorAddress") or {}
+            if not address_info:
                 continue
+            line = address_info.get("line", 0)
+            address = address_info.get("address")
+            instance_num = address_info.get("instanceNumber", 0)
+            instance_type = SENSOR_TYPE_TO_INSTANCE_TYPE.get(sensor.get("type"))
+            if address is None or instance_type is None:
+                continue
+            if self.lines is not None and line not in self.lines:
+                continue
+            device = self._inputs.setdefault(
+                (line, address),
+                InputDevice(line=line, address=address, name=sensor.get("name", "")),
+            )
+            instance = device.instances.setdefault(
+                instance_num, InputInstance(instance_type=instance_type)
+            )
+            instance.instance_type = instance_type
+            if instance_type == INSTANCE_TYPE_LIGHT_SENSOR:
+                instance.value = sensor.get("value")
+            elif instance_type == INSTANCE_TYPE_OCCUPANCY:
+                instance.state = bool(sensor.get("value"))
 
-            # Create repair issue for real, previously known devices
-            ir.async_create_issue(
-                self.hass,
-                DOMAIN,
-                f"missing_device_{protocol}_{address}",
-                is_fixable=True,
-                severity=ir.IssueSeverity.WARNING,
-                translation_key="missing_device",
-                translation_placeholders={
-                    "protocol": protocol,
-                    "address": str(address),
-                    "device_name": device_name,
-                    "device_type": str(device_type),
+    # ------------------------------------------------------------------
+    # Device control (optimistic updates, REST control by gateway id)
+    # ------------------------------------------------------------------
+
+    async def _async_control_device(
+        self, gw_id: int, control: dict[str, Any], **updates: Any
+    ) -> bool:
+        try:
+            await self.client.async_control_device(gw_id, control)
+        except LunatoneApiError as err:
+            _LOGGER.error("Control of device %d failed: %s", gw_id, err)
+            return False
+        device = self.data.devices.get(gw_id) if self.data else None
+        if device and updates:
+            for attr, value in updates.items():
+                setattr(device, attr, value)
+            self.async_set_updated_data(self.data)
+        return True
+
+    async def async_turn_on(self, gw_id: int) -> bool:
+        return await self._async_control_device(
+            gw_id, {"switchable": True}, is_on=True
+        )
+
+    async def async_turn_off(self, gw_id: int) -> bool:
+        return await self._async_control_device(
+            gw_id, {"switchable": False}, is_on=False, brightness_pct=0.0
+        )
+
+    async def async_set_brightness(self, gw_id: int, percent: float) -> bool:
+        return await self._async_control_device(
+            gw_id,
+            {"dimmable": percent},
+            is_on=percent > 0,
+            brightness_pct=percent,
+        )
+
+    async def async_set_color_temp(self, gw_id: int, kelvin: int) -> bool:
+        return await self._async_control_device(
+            gw_id, {"colorKelvin": kelvin}, color_temp_kelvin=kelvin
+        )
+
+    async def async_step_up(self, gw_id: int) -> bool:
+        result = await self._async_control_device(gw_id, {"dimUp": 1})
+        await self.async_request_refresh()
+        return result
+
+    async def async_step_down(self, gw_id: int) -> bool:
+        result = await self._async_control_device(gw_id, {"dimDown": 1})
+        await self.async_request_refresh()
+        return result
+
+    async def async_recall_max(self, gw_id: int) -> bool:
+        return await self._async_control_device(
+            gw_id, {"dimmable": 100}, is_on=True, brightness_pct=100.0
+        )
+
+    # ------------------------------------------------------------------
+    # Group / broadcast control (line-aware!)
+    # ------------------------------------------------------------------
+
+    async def async_control_group(
+        self, line: int, group: int, control: dict[str, Any]
+    ) -> bool:
+        """Control DALI group `group` on one specific line."""
+        try:
+            await self.client.async_control_group(group, control, line=line)
+        except LunatoneApiError as err:
+            _LOGGER.error(
+                "Control of group %d on line %d failed: %s", group, line, err
+            )
+            return False
+        self._apply_optimistic_to_members(
+            control,
+            [
+                device
+                for device in (self.data.devices.values() if self.data else [])
+                if device.line == line and group in device.groups
+            ],
+        )
+        return True
+
+    async def async_control_broadcast(
+        self, control: dict[str, Any], line: int | None = None
+    ) -> bool:
+        """Broadcast to one line, or to all lines when line is None."""
+        try:
+            await self.client.async_control_broadcast(control, line=line)
+        except LunatoneApiError as err:
+            _LOGGER.error("Broadcast on line %s failed: %s", line, err)
+            return False
+        self._apply_optimistic_to_members(
+            control,
+            [
+                device
+                for device in (self.data.devices.values() if self.data else [])
+                if line is None or device.line == line
+            ],
+        )
+        return True
+
+    def _apply_optimistic_to_members(
+        self, control: dict[str, Any], devices: list[LunatoneDevice]
+    ) -> None:
+        if not devices:
+            return
+        for device in devices:
+            if "switchable" in control:
+                device.is_on = bool(control["switchable"])
+                if not device.is_on:
+                    device.brightness_pct = 0.0
+            if "dimmable" in control:
+                device.brightness_pct = float(control["dimmable"])
+                device.is_on = control["dimmable"] > 0
+            if "colorKelvin" in control and device.supports_color_temp:
+                device.color_temp_kelvin = round(control["colorKelvin"])
+        self.async_set_updated_data(self.data)
+
+    # ------------------------------------------------------------------
+    # Websocket push handlers
+    # ------------------------------------------------------------------
+
+    def handle_ws_devices_update(self, devices: list[dict[str, Any]]) -> None:
+        """Merge a `devices` push into current data (status changes)."""
+        if not self.data:
+            return
+        changed = False
+        needs_refresh = False
+        for raw in devices:
+            gw_id = raw.get("id")
+            if gw_id is None:
+                continue
+            device = self.data.devices.get(gw_id)
+            if device is None:
+                # unknown device (e.g. created by a gateway scan) -> full poll
+                if self.lines is None or raw.get("line") in self.lines:
+                    needs_refresh = True
+                continue
+            features = raw.get("features") or {}
+            if "switchable" in features:
+                status = features["switchable"].get("status")
+                if status is not None:
+                    device.is_on = bool(status)
+                    changed = True
+            if "dimmable" in features:
+                status = features["dimmable"].get("status")
+                if status is not None:
+                    device.brightness_pct = float(status)
+                    device.is_on = status > 0
+                    changed = True
+            if "colorKelvin" in features:
+                status = features["colorKelvin"].get("status")
+                if status is not None:
+                    device.color_temp_kelvin = round(status)
+                    changed = True
+            if "available" in raw:
+                device.available = bool(raw["available"])
+                changed = True
+        if changed:
+            self.async_set_updated_data(self.data)
+        if needs_refresh:
+            self.hass.async_create_task(self.async_request_refresh())
+
+    def handle_ws_input_event(self, event: InputEvent) -> None:
+        """Handle a DALI-2 input event (button press, occupancy, ...)."""
+        if self.lines is not None and event.line not in self.lines:
+            return
+
+        key = (event.line, event.address)
+        device = self._inputs.get(key)
+        if device is None:
+            device = InputDevice(line=event.line, address=event.address)
+            self._inputs[key] = device
+            _LOGGER.info(
+                "Discovered new DALI-2 input device on line %d address %d",
+                event.line,
+                event.address,
+            )
+        instance = device.instances.get(event.instance)
+        if instance is None:
+            # Type is not queryable via REST: /sensors marks occupancy and
+            # light sensors, everything else that sends events is treated as
+            # a push button.
+            instance = InputInstance(instance_type=INSTANCE_TYPE_PUSH_BUTTON)
+            device.instances[event.instance] = instance
+            self.hass.async_create_task(self._store.async_save(self._inputs))
+
+        event_type = self._apply_input_event(instance, event)
+
+        if event_type:
+            device_registry = dr.async_get(self.hass)
+            ha_device = device_registry.async_get_device(
+                identifiers={
+                    (
+                        DOMAIN,
+                        input_device_identifier(
+                            self.entry.entry_id, event.line, event.address
+                        ),
+                    )
+                }
+            )
+            self.hass.bus.async_fire(
+                DALI_EVENT,
+                {
+                    "device_id": ha_device.id if ha_device else None,
+                    "type": event_type,
+                    "line": event.line,
+                    "device_address": event.address,
+                    "instance": event.instance,
+                    "instance_type": instance.instance_type,
+                    "event_type": event_type,
+                    "event_data": event.event_data,
                 },
             )
-            
-            _LOGGER.warning(
-                "Device missing from bus: %s %s at address %d - created repair issue",
-                protocol,
-                device_type,
-                address,
+
+        if self.data:
+            self.async_set_updated_data(self.data)
+
+        if event_type in MOMENTARY_EVENTS:
+            self.hass.async_create_task(
+                self._async_reset_momentary_state(instance, event)
             )
-    
-    async def async_remove_device(self, protocol: str, address: int) -> bool:
-        """Remove a device from storage after user confirmation."""
-        from homeassistant.helpers import issue_registry as ir
-        
-        key = (protocol, address)
-        if key in self.client.devices:
-            device = self.client.devices.pop(key)
-            
-            # Save updated devices to storage
-            serialized_devices = {}
-            for k, dev in self.client.devices.items():
-                serialized_devices[k] = self.storage.serialize_device(dev)
-            
-            await self.storage.async_save(serialized_devices)
-            
-            # Remove the repair issue
-            ir.async_delete_issue(
-                self.hass,
-                DOMAIN,
-                f"missing_device_{protocol}_{address}",
-            )
-            
-            _LOGGER.info(
-                "Removed device: %s %s at address %d",
-                protocol,
-                device.device_type,
-                address,
-            )
-            
-            await self.async_request_refresh()
-            return True
-        
-        return False
 
-    async def async_step_up(self, address: int) -> bool:
-        """Step up brightness."""
-        success = await self.client.step_up(address)
-        if success:
-            # For step commands, we need to query the actual brightness
-            # Schedule a refresh on next update cycle
-            await self.async_request_refresh()
-        return success
-
-    async def async_step_down(self, address: int) -> bool:
-        """Step down brightness."""
-        success = await self.client.step_down(address)
-        if success:
-            # For step commands, we need to query the actual brightness
-            # Schedule a refresh on next update cycle
-            await self.async_request_refresh()
-        return success
-
-    async def async_recall_max(self, address: int) -> bool:
-        """Recall maximum level."""
-        success = await self.client.recall_max_level(address)
-        if success:
-            key = ("DALI", address)
-            if key in self.client.devices:
-                self.client.devices[key].is_on = True
-                self.client.devices[key].brightness = 100
-                # Notify coordinator of state change without triggering a scan
-                self.async_set_updated_data(self.client.devices)
-        return success
-
-    def _handle_device_event(self, event_type: str, *args: Any) -> None:
-        """Handle device events from the WebSocket connection."""
-        if event_type == "state_update":
-            # DALI device state changed (external command from wall switch, etc.)
-            device = args[0] if args else None
-            if device:
-                _LOGGER.debug(
-                    "External state update: %s address %d, brightness=%d%%, on=%s",
-                    device.protocol,
-                    device.address,
-                    device.brightness,
-                    device.is_on,
-                )
-                # Trigger coordinator update to notify all entities
-                self.async_set_updated_data(self.client.devices)
-        
-        elif event_type == "dali2_event":
-            # DALI2 instance event (pushbutton, sensor, etc.)
-            device = args[0] if len(args) > 0 else None
-            instance = args[1] if len(args) > 1 else None
-            instance_info = args[2] if len(args) > 2 else None
-            
-            if device and instance is not None and instance_info:
-                instance_type = instance_info.get("type", 0)
-                button_event_type = instance_info.get("event_type", "")
-                _LOGGER.debug(
-                    "DALI2 event: address %d, instance %d, type %d, event=%s, data=%s",
-                    device.address,
-                    instance,
-                    instance_type,
-                    button_event_type,
-                    instance_info,
-                )
-                
-                # Fire HA event bus event for button/switch/occupancy events
-                if instance_type in (1, 2, 3) and button_event_type:
-                    # Look up HA device_id for device trigger matching
-                    device_reg = dr.async_get(self.hass)
-                    ha_device = device_reg.async_get_device(
-                        identifiers={(DOMAIN, f"{device.protocol}_{device.address}")}
-                    )
-                    ha_device_id = ha_device.id if ha_device else None
-
-                    self.hass.bus.async_fire(
-                        DALI_EVENT,
-                        {
-                            "device_id": ha_device_id,
-                            "type": button_event_type,
-                            "device_address": device.address,
-                            "instance": instance,
-                            "instance_type": instance_type,
-                            "event_type": button_event_type,
-                            "event_data": instance_info.get("event_data"),
-                        },
-                    )
-                
-                # Trigger coordinator update to notify binary_sensor and sensor entities
-                self.async_set_updated_data(self.client.devices)
-                
-                # Auto-reset momentary events (short_press, double_press)
-                # These set state=True briefly, then reset to False
-                if button_event_type in MOMENTARY_EVENTS:
-                    self.hass.async_create_task(
-                        self._async_reset_momentary_state(
-                            device, instance, instance_info
-                        )
-                    )
-
-    def get_led_state(self, address: int, instance: int) -> bool | None:
-        """Get the current state of a feedback LED."""
-        return self._led_states.get((address, instance))
+    def _apply_input_event(
+        self, instance: InputInstance, event: InputEvent
+    ) -> str | None:
+        """Update instance state from the event; return the event type name."""
+        if instance.instance_type in (
+            INSTANCE_TYPE_PUSH_BUTTON,
+            INSTANCE_TYPE_SWITCH,
+        ):
+            event_type = decode_button_event(event.event_data)
+            instance.state = event.event_data in BUTTON_ACTIVE_EVENTS
+            instance.event_type = event_type
+            return event_type
+        if instance.instance_type == INSTANCE_TYPE_OCCUPANCY:
+            event_type = decode_occupancy_event(event.event_data)
+            instance.state = event_type in ("occupied", "still_occupied")
+            instance.event_type = event_type
+            return event_type
+        if instance.instance_type == INSTANCE_TYPE_LIGHT_SENSOR:
+            instance.value = float(event.event_data)
+            return None
+        return None
 
     async def _async_reset_momentary_state(
-        self, device: DaliDevice, instance: int, instance_info: dict
+        self, instance: InputInstance, event: InputEvent
     ) -> None:
-        """Reset binary sensor state after a momentary button event."""
+        """Reset a binary sensor shortly after a momentary button event."""
         await asyncio.sleep(MOMENTARY_RESET_DELAY)
-        # Only reset if the state hasn't been changed by another event
-        current_event = instance_info.get("event_type", "")
-        if current_event in MOMENTARY_EVENTS:
-            instance_info["state"] = False
-            _LOGGER.debug(
-                "Auto-reset momentary state: address %d, instance %d, event was %s",
-                device.address,
-                instance,
-                current_event,
-            )
-            self.async_set_updated_data(self.client.devices)
+        if instance.event_type in MOMENTARY_EVENTS:
+            instance.state = False
+            if self.data:
+                self.async_set_updated_data(self.data)
 
-    def set_led_state(self, address: int, instance: int, is_on: bool) -> None:
-        """Set the state of a feedback LED and notify listeners."""
-        self._led_states[(address, instance)] = is_on
-        # Trigger coordinator update to notify LED entities
-        self.async_set_updated_data(self.client.devices)
+    # ------------------------------------------------------------------
+    # Feedback LEDs (24-bit frames on the device's line)
+    # ------------------------------------------------------------------
+
+    def get_led_state(self, line: int, address: int, instance: int) -> bool | None:
+        return self._led_states.get((line, address, instance))
+
+    async def async_set_feedback_led(
+        self, line: int, address: int, instance: int, state: bool
+    ) -> bool:
+        try:
+            await self.client.async_send_dali24(
+                line,
+                address=(address << 1) + 1,
+                instance=0x20 + instance,
+                command=FEEDBACK_LED_ON if state else FEEDBACK_LED_OFF,
+            )
+        except LunatoneApiError as err:
+            _LOGGER.error(
+                "Setting feedback LED line %d address %d instance %d failed: %s",
+                line,
+                address,
+                instance,
+                err,
+            )
+            return False
+        self._led_states[(line, address, instance)] = state
+        if self.data:
+            self.async_set_updated_data(self.data)
+        return True

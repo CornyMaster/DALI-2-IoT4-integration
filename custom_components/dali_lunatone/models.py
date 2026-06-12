@@ -162,7 +162,9 @@ class LunatoneData:
             if isinstance(info_data, GatewayInfo)
             else GatewayInfo.from_api(info_data)
         )
-        data = cls(info=info, inputs=inputs or {})
+        # keep the caller's dict identity: the coordinator shares one inputs
+        # registry across refreshes and live websocket discoveries
+        data = cls(info=info, inputs=inputs if inputs is not None else {})
         for raw in devices_data:
             device = LunatoneDevice.from_api(raw)
             if lines is not None and device.line not in lines:

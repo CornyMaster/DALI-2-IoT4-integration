@@ -1,13 +1,15 @@
 # Services for Lunatone DALI-2 IoT integration
 
 rescan_devices:
-  name: Rescan DALI devices
-  description: Scan the DALI bus for new, changed, or removed devices.
+  name: Scan for DALI devices
+  description: >-
+    Trigger the gateway's own device scan (no re-addressing). New devices
+    appear automatically after the scan finishes.
   fields: {}
 
 step_up:
   name: Step brightness up
-  description: Increase brightness by one step (approx 4%).
+  description: Increase brightness by one step.
   target:
     entity:
       integration: dali_lunatone
@@ -15,7 +17,7 @@ step_up:
 
 step_down:
   name: Step brightness down
-  description: Decrease brightness by one step (approx 4%).
+  description: Decrease brightness by one step.
   target:
     entity:
       integration: dali_lunatone
@@ -31,24 +33,44 @@ recall_max:
 
 set_feedback_led:
   name: Set feedback LED
-  description: Control the indicator LED on a DALI2 button/sensor instance.
+  description: >-
+    Control the indicator LED of a DALI-2 input instance, addressed by line,
+    short address and instance number.
   fields:
-    entity_id:
-      name: Entity ID
-      description: The binary sensor entity ID representing the button/sensor instance.
+    line:
+      name: DALI line
+      description: Line the input device is connected to (0-3 on an IoT4).
       required: true
-      example: "binary_sensor.dali2_0_button_0"
+      example: 0
       selector:
-        entity:
-          integration: dali_lunatone
-          domain: binary_sensor
+        number:
+          min: 0
+          max: 15
+          mode: box
+    address:
+      name: Device address
+      description: DALI-2 short address of the input device (0-63).
+      required: true
+      example: 5
+      selector:
+        number:
+          min: 0
+          max: 63
+          mode: box
+    instance:
+      name: Instance
+      description: Instance number of the button (e.g. 0-3 on a 4-button coupler).
+      required: true
+      example: 0
+      selector:
+        number:
+          min: 0
+          max: 31
+          mode: box
     state:
-      name: LED State
+      name: LED state
       description: Turn the feedback LED on or off.
       required: true
-      example: "on"
+      example: true
       selector:
-        select:
-          options:
-            - "on"
-            - "off"
+        boolean:

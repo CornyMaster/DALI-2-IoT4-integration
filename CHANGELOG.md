@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-beta-1] - 2026-06-12
+
+Fork: project renamed to **DALI-2 IoT4 integration** with full multi-line support.
+
+### Changed (BREAKING)
+- Complete rewrite around the gateway's REST API. `GET /devices` is now the
+  source of truth (line-aware, includes live state); the integration-side
+  DALI bus scan and its device storage were removed.
+- All unique_ids are line-aware now: `…_line{L}_dali_{A}`, `…_line{L}_group{G}`,
+  `…_line{L}_broadcast`, `…_line{L}_input_{A}_inst{I}`. Entities created by
+  upstream versions will appear as new entities.
+- Device control via `POST /device/{id}/control`; groups and broadcast are
+  controlled per line via the `_line` query parameter.
+- `set_feedback_led` service now takes `line`/`address`/`instance`/`state`.
+- Options `background_status_polling` and `scan_new_devices_on_startup`
+  removed; inventory polling always on (default 30 s, configurable 5-3600 s).
+- `websockets` dependency dropped (aiohttp only).
+
+### Added
+- Multi-line support for the DALI-2 IoT4 gateway: devices, groups, broadcast,
+  button events and device triggers are separated per DALI line. Identical
+  short addresses/groups on different lines no longer collide.
+- Line selection in the config flow: line count auto-detected from
+  `GET /info` (`descriptor.lines`), selectable during setup and in options.
+- Group light state is aggregated from member devices (on = any member on,
+  brightness = max) instead of assumed.
+- Broadcast entity per line + optional all-lines broadcast (disabled by default).
+- DALI-2 input events carry the `line` in the `dali_lunatone_event` payload.
+- Websocket `devices` push merges live state between polls.
+- Test suite: unit tests on real gateway fixtures, HA integration tests,
+  opt-in read-only live tests (`LUNATONE_GW_HOST` + `-m gateway`).
+
+
 ## [0.1.4-beta-3] - 2026-03-13
 
 ### Fixed
