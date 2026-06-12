@@ -4,15 +4,15 @@ import pytest
 
 pytest.importorskip("homeassistant")
 
-from yarl import URL
+from yarl import URL  # noqa: E402
 
-from custom_components.dali_lunatone.light import (
+from custom_components.dali_lunatone.light import (  # noqa: E402
     LunatoneBroadcastLight,
     LunatoneDeviceLight,
     LunatoneGroupLight,
 )
 
-from .conftest import BASE
+from .conftest import BASE  # noqa: E402
 
 
 async def test_device_lights_have_line_aware_unique_ids(coordinator, config_entry):

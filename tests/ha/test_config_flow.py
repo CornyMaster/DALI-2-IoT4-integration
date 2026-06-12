@@ -7,11 +7,11 @@ import pytest
 
 pytest.importorskip("homeassistant")
 
-from aioresponses import aioresponses
-from homeassistant import config_entries
-from homeassistant.data_entry_flow import FlowResultType
+from aioresponses import aioresponses  # noqa: E402
+from homeassistant import config_entries  # noqa: E402
+from homeassistant.data_entry_flow import FlowResultType  # noqa: E402
 
-from custom_components.dali_lunatone.const import (
+from custom_components.dali_lunatone.const import (  # noqa: E402
     CONF_ENABLE_GLOBAL_BROADCAST,
     CONF_HOST,
     CONF_LINES,
@@ -20,7 +20,7 @@ from custom_components.dali_lunatone.const import (
     DOMAIN,
 )
 
-from .conftest import HOST
+from .conftest import HOST  # noqa: E402
 
 
 async def test_full_flow_detects_4_lines(hass, mock_gateway):

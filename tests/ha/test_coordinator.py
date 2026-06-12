@@ -4,24 +4,24 @@ import pytest
 
 pytest.importorskip("homeassistant")
 
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from pytest_homeassistant_custom_component.common import (
+from homeassistant.helpers.aiohttp_client import async_get_clientsession  # noqa: E402
+from pytest_homeassistant_custom_component.common import (  # noqa: E402
     MockConfigEntry,
     async_capture_events,
 )
 
-from custom_components.dali_lunatone.api import LunatoneRestClient
-from custom_components.dali_lunatone.const import (
+from custom_components.dali_lunatone.api import LunatoneRestClient  # noqa: E402
+from custom_components.dali_lunatone.const import (  # noqa: E402
     CONF_HOST,
     CONF_LINES,
     CONF_PORT,
     DALI_EVENT,
     DOMAIN,
 )
-from custom_components.dali_lunatone.coordinator import LunatoneCoordinator
-from custom_components.dali_lunatone.websocket import InputEvent
+from custom_components.dali_lunatone.coordinator import LunatoneCoordinator  # noqa: E402
+from custom_components.dali_lunatone.websocket import InputEvent  # noqa: E402
 
-from .conftest import BASE, HOST
+from .conftest import BASE, HOST  # noqa: E402
 
 
 async def test_first_refresh_builds_line_aware_inventory(coordinator):
