@@ -61,8 +61,11 @@ tracking of DALI-2 input devices (buttons/sensors).
 
 - `lunatone_dali2_iot4.rescan_devices` — start the gateway's device scan
 - `lunatone_dali2_iot4.step_up` / `step_down` / `recall_max` — entity services on lights
-- `lunatone_dali2_iot4.recall_scene` / `store_scene` — recall or store a DALI
-  scene (0-15) on a device, group or broadcast light (line-aware)
+- `lunatone_dali2_iot4.recall_scene` / `store_scene` — recall (optionally with
+  `fade_time`) or store a DALI scene (0-15) on a device, group or broadcast
+  light (line-aware)
+- `lunatone_dali2_iot4.set_scene_level` — write a device's stored scene value
+  directly; stored values are shown in the `scenes` attribute of device lights
 - `lunatone_dali2_iot4.set_feedback_led` — control a button's indicator LED by
   line / address / instance
 

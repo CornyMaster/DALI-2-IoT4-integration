@@ -91,6 +91,28 @@ async def test_device_scene_recall_uses_gateway_id(
     assert mock_gateway.requests[key][0].kwargs["json"] == {"scene": 3}
 
 
+async def test_scene_recall_with_fade(coordinator, config_entry, mock_gateway):
+    group = LunatoneGroupLight(coordinator, config_entry, 0, 3)
+    mock_gateway.post(f"{BASE}/group/3/control?_line=0", payload={})
+    await group.async_recall_scene(2, fade_time=1.5)
+    key = ("POST", URL(f"{BASE}/group/3/control?_line=0"))
+    assert mock_gateway.requests[key][0].kwargs["json"] == {
+        "sceneWithFade": {"scene": 2, "fadeTime": 1.5}
+    }
+
+
+async def test_set_scene_level_writes_device_scenes(
+    coordinator, config_entry, mock_gateway
+):
+    light = LunatoneDeviceLight(coordinator, config_entry, 0, 20)
+    mock_gateway.post(f"{BASE}/device/1/scenes", payload={})
+    await light.async_set_scene_level(4, 60.0)
+    key = ("POST", URL(f"{BASE}/device/1/scenes"))
+    assert mock_gateway.requests[key][0].kwargs["json"] == {
+        "4": {"dimmable": 60.0}
+    }
+
+
 async def test_group_state_aggregates_members(coordinator, config_entry):
     group = LunatoneGroupLight(coordinator, config_entry, 0, 0)
     assert group.is_on is False

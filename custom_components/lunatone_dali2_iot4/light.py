@@ -36,6 +36,7 @@ from .coordinator import (
     LunatoneCoordinator,
     gear_device_identifier,
     input_device_identifier,
+    scene_control,
 )
 from .models import LunatoneDevice
 
@@ -115,14 +116,29 @@ async def async_setup_entry(
     platform.async_register_entity_service("step_up", {}, "async_step_up")
     platform.async_register_entity_service("step_down", {}, "async_step_down")
     platform.async_register_entity_service("recall_max", {}, "async_recall_max")
-    scene_schema = {
-        vol.Required("scene"): vol.All(vol.Coerce(int), vol.Range(min=0, max=15))
-    }
+    scene_number = vol.All(vol.Coerce(int), vol.Range(min=0, max=15))
     platform.async_register_entity_service(
-        "recall_scene", scene_schema, "async_recall_scene"
+        "recall_scene",
+        {
+            vol.Required("scene"): scene_number,
+            vol.Optional("fade_time"): vol.All(
+                vol.Coerce(float), vol.Range(min=0, max=600)
+            ),
+        },
+        "async_recall_scene",
     )
     platform.async_register_entity_service(
-        "store_scene", scene_schema, "async_store_scene"
+        "store_scene", {vol.Required("scene"): scene_number}, "async_store_scene"
+    )
+    platform.async_register_entity_service(
+        "set_scene_level",
+        {
+            vol.Required("scene"): scene_number,
+            vol.Optional("level"): vol.All(
+                vol.Coerce(float), vol.Range(min=0, max=100)
+            ),
+        },
+        "async_set_scene_level",
     )
 
 
@@ -231,6 +247,11 @@ class LunatoneDeviceLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
                     "control_gear_failure": device.control_gear_failure,
                 }
             )
+            if device.scenes:
+                attrs["scenes"] = {
+                    scene: values.get("dimmable", values)
+                    for scene, values in sorted(device.scenes.items())
+                }
         return attrs
 
     async def async_turn_on(self, **kwargs: Any) -> None:
@@ -278,15 +299,24 @@ class LunatoneDeviceLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
         if device:
             await self.coordinator.async_recall_max(device.gw_id)
 
-    async def async_recall_scene(self, scene: int) -> None:
+    async def async_recall_scene(
+        self, scene: int, fade_time: float | None = None
+    ) -> None:
         device = self._device
         if device:
-            await self.coordinator.async_recall_scene(device.gw_id, scene)
+            await self.coordinator.async_recall_scene(device.gw_id, scene, fade_time)
 
     async def async_store_scene(self, scene: int) -> None:
         device = self._device
         if device:
             await self.coordinator.async_store_scene(device.gw_id, scene)
+
+    async def async_set_scene_level(
+        self, scene: int, level: float | None = None
+    ) -> None:
+        device = self._device
+        if device:
+            await self.coordinator.async_set_scene_level(device.gw_id, scene, level)
 
 
 class LunatoneGroupLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
@@ -399,11 +429,23 @@ class LunatoneGroupLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
             self._line, self._group, {"switchable": False}
         )
 
-    async def async_recall_scene(self, scene: int) -> None:
+    async def async_recall_scene(
+        self, scene: int, fade_time: float | None = None
+    ) -> None:
         await self.coordinator.async_control_group(
-            self._line, self._group, {"scene": scene}
+            self._line, self._group, scene_control(scene, fade_time)
         )
         await self.coordinator.async_request_refresh()
+
+    async def async_set_scene_level(
+        self, scene: int, level: float | None = None
+    ) -> None:
+        _LOGGER.warning(
+            "set_scene_level targets individual device lights; call it on the "
+            "member devices of group %d (line %d) instead",
+            self._group,
+            self._line,
+        )
 
     async def async_store_scene(self, scene: int) -> None:
         await self.coordinator.async_control_group(
@@ -519,11 +561,20 @@ class LunatoneBroadcastLight(CoordinatorEntity[LunatoneCoordinator], LightEntity
             {"switchable": False}, line=self._line
         )
 
-    async def async_recall_scene(self, scene: int) -> None:
+    async def async_recall_scene(
+        self, scene: int, fade_time: float | None = None
+    ) -> None:
         await self.coordinator.async_control_broadcast(
-            {"scene": scene}, line=self._line
+            scene_control(scene, fade_time), line=self._line
         )
         await self.coordinator.async_request_refresh()
+
+    async def async_set_scene_level(
+        self, scene: int, level: float | None = None
+    ) -> None:
+        _LOGGER.warning(
+            "set_scene_level targets individual device lights, not broadcast"
+        )
 
     async def async_store_scene(self, scene: int) -> None:
         await self.coordinator.async_control_broadcast(

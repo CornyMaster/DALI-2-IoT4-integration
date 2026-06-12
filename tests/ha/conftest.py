@@ -59,13 +59,23 @@ def config_entry(hass):
     return entry
 
 
+EMPTY_SCENES = {str(scene): {"dimmable": None} for scene in range(16)}
+
+
 @pytest.fixture
 def mock_gateway(gw_info, gw_devices):
     """Mock the gateway REST endpoints with the real fixture data."""
+    import re
+
     with aioresponses() as mock:
         mock.get(f"{BASE}/info", payload=gw_info, repeat=True)
         mock.get(f"{BASE}/devices", payload=gw_devices, repeat=True)
         mock.get(f"{BASE}/sensors", payload={"sensors": []}, repeat=True)
+        mock.get(
+            re.compile(rf"{BASE}/device/\d+/scenes$"),
+            payload=EMPTY_SCENES,
+            repeat=True,
+        )
         yield mock
 
 

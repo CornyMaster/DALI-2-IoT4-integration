@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-beta-3] - 2026-06-12
+
+### Added
+- Full DALI scene support:
+  - `recall_scene` accepts an optional `fade_time` (uses `sceneWithFade`)
+  - new entity service `set_scene_level` writes a device's stored scene
+    value directly via `POST /device/{id}/scenes` (omit level to clear)
+  - stored scene values are read from the gateway at startup and after
+    scene writes, and exposed as a `scenes` attribute on device lights
+
+
 ## [0.2.0-beta-2] - 2026-06-12
 
 ### Fixed
@@ -204,7 +215,8 @@ Fork: project renamed to **DALI-2 IoT4 integration** with full multi-line suppor
 - Push button (iT1) state now correctly returns to "off" after short press events
 - Improved binary sensor state handling for momentary vs maintained buttons
 
-[Unreleased]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-2...HEAD
+[Unreleased]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-3...HEAD
+[0.2.0-beta-3]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-2...v0.2.0-beta-3
 [0.2.0-beta-2]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-1...v0.2.0-beta-2
 [0.2.0-beta-1]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.1.4-beta-3...v0.2.0-beta-1
 [0.1.3-beta]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.1.2-beta...v0.1.3-beta

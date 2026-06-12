@@ -45,6 +45,8 @@ class LunatoneDevice:
     lamp_failure: bool
     control_gear_failure: bool
     status_raw: dict[str, Any]
+    # stored scene values, attached by the coordinator: {scene: {"dimmable": ...}}
+    scenes: dict[int, Any] = field(default_factory=dict)
 
     @classmethod
     def from_api(cls, data: dict[str, Any]) -> LunatoneDevice:

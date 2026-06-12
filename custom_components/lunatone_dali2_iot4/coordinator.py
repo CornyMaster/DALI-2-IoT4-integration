@@ -48,6 +48,13 @@ SENSOR_TYPE_TO_INSTANCE_TYPE = {
 }
 
 
+def scene_control(scene: int, fade_time: float | None = None) -> dict[str, Any]:
+    """Build the ControlData payload for a scene recall."""
+    if fade_time is not None:
+        return {"sceneWithFade": {"scene": scene, "fadeTime": fade_time}}
+    return {"scene": scene}
+
+
 def gear_device_identifier(entry_id: str, line: int, address: int) -> str:
     """Registry identifier for a control-gear device (stable bus identity)."""
     return f"{entry_id}_line{line}_addr{address}"
@@ -87,6 +94,8 @@ class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
         self._inputs_loaded = False
         self._store = InputDeviceStore(hass, entry.entry_id)
         self._led_states: dict[tuple[int, int, int], bool] = {}
+        self._scenes: dict[int, dict[int, Any]] = {}
+        self._scenes_loaded = False
 
     # ------------------------------------------------------------------
     # Polling
@@ -108,9 +117,55 @@ class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
             self._inputs_loaded = True
 
         self._merge_sensors(sensors)
-        return LunatoneData.from_api(
+        data = LunatoneData.from_api(
             self.info, devices, lines=self.lines, inputs=self._inputs
         )
+        if not self._scenes_loaded:
+            await self._async_fetch_all_scenes(data)
+            self._scenes_loaded = True
+        for gw_id, device in data.devices.items():
+            device.scenes = self._scenes.get(gw_id, {})
+        return data
+
+    async def _async_fetch_all_scenes(self, data: LunatoneData) -> None:
+        """Load the stored scene values of every device (once at startup)."""
+
+        async def fetch(gw_id: int) -> None:
+            try:
+                raw = await self.client.async_get_device_scenes(gw_id)
+            except LunatoneApiError as err:
+                _LOGGER.debug("Reading scenes of device %d failed: %s", gw_id, err)
+                return
+            self._scenes[gw_id] = self._parse_scenes(raw)
+
+        await asyncio.gather(*(fetch(gw_id) for gw_id in data.devices))
+
+    @staticmethod
+    def _parse_scenes(raw: dict[str, Any]) -> dict[int, Any]:
+        """Keep only scenes that actually store a value."""
+        scenes: dict[int, Any] = {}
+        for key, value in (raw or {}).items():
+            try:
+                scene = int(key)
+            except ValueError:
+                continue
+            if isinstance(value, dict) and any(
+                v is not None for v in value.values()
+            ):
+                scenes[scene] = value
+        return scenes
+
+    async def async_refresh_device_scenes(self, gw_id: int) -> None:
+        """Re-read one device's stored scenes (after a scene write)."""
+        try:
+            raw = await self.client.async_get_device_scenes(gw_id)
+        except LunatoneApiError as err:
+            _LOGGER.debug("Reading scenes of device %d failed: %s", gw_id, err)
+            return
+        self._scenes[gw_id] = self._parse_scenes(raw)
+        if self.data and gw_id in self.data.devices:
+            self.data.devices[gw_id].scenes = self._scenes[gw_id]
+            self.async_set_updated_data(self.data)
 
     def _merge_sensors(self, sensors: list[dict[str, Any]]) -> None:
         """Type and update input instances from GET /sensors."""
@@ -191,15 +246,37 @@ class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
         await self.async_request_refresh()
         return result
 
-    async def async_recall_scene(self, gw_id: int, scene: int) -> bool:
-        """Recall a DALI scene (0-15) on one device."""
-        result = await self._async_control_device(gw_id, {"scene": scene})
+    async def async_recall_scene(
+        self, gw_id: int, scene: int, fade_time: float | None = None
+    ) -> bool:
+        """Recall a DALI scene (0-15) on one device, optionally with fade."""
+        result = await self._async_control_device(
+            gw_id, scene_control(scene, fade_time)
+        )
         await self.async_request_refresh()
         return result
 
     async def async_store_scene(self, gw_id: int, scene: int) -> bool:
         """Store the device's current level into a DALI scene (0-15)."""
-        return await self._async_control_device(gw_id, {"saveToScene": scene})
+        result = await self._async_control_device(gw_id, {"saveToScene": scene})
+        await self.async_refresh_device_scenes(gw_id)
+        return result
+
+    async def async_set_scene_level(
+        self, gw_id: int, scene: int, level: float | None
+    ) -> bool:
+        """Write a device's stored scene value directly (None clears it)."""
+        try:
+            await self.client.async_set_device_scenes(
+                gw_id, {str(scene): {"dimmable": level}}
+            )
+        except LunatoneApiError as err:
+            _LOGGER.error(
+                "Setting scene %d of device %d failed: %s", scene, gw_id, err
+            )
+            return False
+        await self.async_refresh_device_scenes(gw_id)
+        return True
 
     async def async_recall_max(self, gw_id: int) -> bool:
         return await self._async_control_device(

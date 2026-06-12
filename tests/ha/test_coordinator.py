@@ -126,6 +126,25 @@ async def test_input_tracking_can_be_disabled(hass, gw_devices, mock_gateway):
     assert coordinator.data.inputs == {}
 
 
+async def test_scene_values_are_loaded_and_refreshed(coordinator, mock_gateway):
+    from unittest.mock import AsyncMock
+
+    # initial fetch found no stored scenes (all dimmable null)
+    assert coordinator.data.devices[1].scenes == {}
+    # after a write, the device's scenes are re-read
+    mock_gateway.post(f"{BASE}/device/1/scenes", payload={})
+    coordinator.client.async_get_device_scenes = AsyncMock(
+        return_value={"0": {"dimmable": 80.0}, "1": {"dimmable": None}}
+    )
+    assert await coordinator.async_set_scene_level(1, 0, 80.0) is True
+    assert coordinator.data.devices[1].scenes == {0: {"dimmable": 80.0}}
+    # the write went to POST /device/1/scenes with a partial update
+    key = ("POST", _url(f"{BASE}/device/1/scenes"))
+    assert mock_gateway.requests[key][0].kwargs["json"] == {
+        "0": {"dimmable": 80.0}
+    }
+
+
 async def test_device_control_uses_gateway_id(coordinator, mock_gateway):
     mock_gateway.post(f"{BASE}/device/24/control", payload={})
     # device 24 == line 2, address 20

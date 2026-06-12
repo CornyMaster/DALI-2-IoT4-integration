@@ -90,6 +90,16 @@ class LunatoneRestClient:
     async def async_get_scan_status(self) -> dict[str, Any]:
         return await self._request("GET", "/dali/scan")
 
+    async def async_get_device_scenes(self, gw_id: int) -> dict[str, Any]:
+        """Stored scene values of one device: {"0": {"dimmable": pct|null}, ...}."""
+        return await self._request("GET", f"/device/{gw_id}/scenes")
+
+    async def async_set_device_scenes(
+        self, gw_id: int, scenes: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Write stored scene values of one device (partial updates allowed)."""
+        return await self._request("POST", f"/device/{gw_id}/scenes", json=scenes)
+
     # -- control endpoints (ControlData bodies) -----------------------------
 
     async def async_control_device(
