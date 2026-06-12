@@ -10,7 +10,7 @@ mkdir -p /tmp/dali_lunatone_release
 cd /tmp/dali_lunatone_release
 
 # Copy integration files
-cp -r ~/development/dali-lunatone-integration/custom_components/dali_lunatone .
+cp -r ~/development/DALI-2-IoT4-integration/custom_components/dali_lunatone .
 
 # Remove Python cache files
 find dali_lunatone -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
@@ -20,13 +20,13 @@ find dali_lunatone -type f -name "*.pyc" -delete 2>/dev/null || true
 tar -czf dali_lunatone_v${VERSION}.tar.gz dali_lunatone/
 
 # Move to development directory
-mv dali_lunatone_v${VERSION}.tar.gz ~/development/dali-lunatone-integration/
+mv dali_lunatone_v${VERSION}.tar.gz ~/development/DALI-2-IoT4-integration/
 
 # Cleanup
 cd ~
 rm -rf /tmp/dali_lunatone_release
 
-echo "✅ Package created: ~/development/dali-lunatone-integration/dali_lunatone_v${VERSION}.tar.gz"
+echo "✅ Package created: ~/development/DALI-2-IoT4-integration/dali_lunatone_v${VERSION}.tar.gz"
 echo ""
 echo "To install on Home Assistant:"
 echo "1. Copy tar.gz file to your Home Assistant device"

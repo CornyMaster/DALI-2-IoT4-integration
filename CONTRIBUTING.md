@@ -14,14 +14,14 @@ Thank you for your interest in contributing to this Home Assistant integration!
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/martsola/dali-lunatone-integration.git
-   cd dali-lunatone-integration
+   git clone https://github.com/CornyMaster/DALI-2-IoT4-integration.git
+   cd DALI-2-IoT4-integration
    ```
 
 2. Create a symbolic link in your Home Assistant config:
    ```bash
    cd /path/to/homeassistant/config/custom_components
-   ln -s /path/to/dali-lunatone-integration/custom_components/dali_lunatone dali_lunatone
+   ln -s /path/to/DALI-2-IoT4-integration/custom_components/dali_lunatone dali_lunatone
    ```
 
 3. Restart Home Assistant
@@ -142,7 +142,7 @@ custom_components/dali_lunatone/
 
 ## Questions?
 
-- Open a [GitHub Discussion](https://github.com/martsola/dali-lunatone-integration/discussions)
+- Open a [GitHub Discussion](https://github.com/CornyMaster/DALI-2-IoT4-integration/discussions)
 - Ask in [Home Assistant Community](https://community.home-assistant.io/)
 
 ## License

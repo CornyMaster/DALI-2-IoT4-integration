@@ -178,6 +178,7 @@ Fork: project renamed to **DALI-2 IoT4 integration** with full multi-line suppor
 - Push button (iT1) state now correctly returns to "off" after short press events
 - Improved binary sensor state handling for momentary vs maintained buttons
 
-[Unreleased]: https://github.com/martsola/dali-lunatone-integration/compare/v0.1.3-beta...HEAD
-[0.1.3-beta]: https://github.com/martsola/dali-lunatone-integration/compare/v0.1.2-beta...v0.1.3-beta
-[0.1.0-beta]: https://github.com/martsola/dali-lunatone-integration/releases/tag/v0.1.0-beta
+[Unreleased]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-1...HEAD
+[0.2.0-beta-1]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.1.4-beta-3...v0.2.0-beta-1
+[0.1.3-beta]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.1.2-beta...v0.1.3-beta
+[0.1.0-beta]: https://github.com/CornyMaster/DALI-2-IoT4-integration/releases/tag/v0.1.0-beta
