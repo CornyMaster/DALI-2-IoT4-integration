@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-beta-2] - 2026-06-12
+
+### Fixed
+- **Phantom input devices** ("Line X Input N" with a single "Button 31"
+  entity and `unknown_event_53`): the 24-bit frame decoder treated the
+  gateway's own DALI command frames (e.g. QUERY NUMBER OF INSTANCES to the
+  instance broadcast) as button events. Events and commands are now told
+  apart per IEC 62386-103 (address byte LSB), and only short-address +
+  instance-number scheme events are decoded (now using the full 10-bit
+  event info).
+- Input registry storage bumped to v2; v1 data (which may contain phantom
+  devices) is discarded and inputs are rediscovered from real events.
+- Stale devices can now be deleted from the Home Assistant UI
+  (`async_remove_config_entry_device`).
+
+### Added
+- Option **"Track DALI-2 input devices"**: input tracking (entity creation
+  and events from websocket bus traffic) can be disabled entirely.
+- DALI scene support: new entity services `recall_scene` and `store_scene`
+  (scene 0-15) on device, group and broadcast lights — line-aware like all
+  other commands.
+
+
 ## [0.2.0-beta-1] - 2026-06-12
 
 Fork: project renamed to **DALI-2 IoT4 integration** with full multi-line support.
@@ -181,7 +204,8 @@ Fork: project renamed to **DALI-2 IoT4 integration** with full multi-line suppor
 - Push button (iT1) state now correctly returns to "off" after short press events
 - Improved binary sensor state handling for momentary vs maintained buttons
 
-[Unreleased]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-1...HEAD
+[Unreleased]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-2...HEAD
+[0.2.0-beta-2]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-1...v0.2.0-beta-2
 [0.2.0-beta-1]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.1.4-beta-3...v0.2.0-beta-1
 [0.1.3-beta]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.1.2-beta...v0.1.3-beta
 [0.1.0-beta]: https://github.com/CornyMaster/DALI-2-IoT4-integration/releases/tag/v0.1.0-beta

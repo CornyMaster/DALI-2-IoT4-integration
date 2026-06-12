@@ -71,6 +71,26 @@ async def test_group_light_per_line(coordinator, config_entry, mock_gateway):
     assert mock_gateway.requests[key][0].kwargs["json"] == {"switchable": True}
 
 
+async def test_group_scene_recall_targets_single_line(
+    coordinator, config_entry, mock_gateway
+):
+    group = LunatoneGroupLight(coordinator, config_entry, 1, 4)
+    mock_gateway.post(f"{BASE}/group/4/control?_line=1", payload={})
+    await group.async_recall_scene(7)
+    key = ("POST", URL(f"{BASE}/group/4/control?_line=1"))
+    assert mock_gateway.requests[key][0].kwargs["json"] == {"scene": 7}
+
+
+async def test_device_scene_recall_uses_gateway_id(
+    coordinator, config_entry, mock_gateway
+):
+    light = LunatoneDeviceLight(coordinator, config_entry, 2, 20)
+    mock_gateway.post(f"{BASE}/device/24/control", payload={})
+    await light.async_recall_scene(3)
+    key = ("POST", URL(f"{BASE}/device/24/control"))
+    assert mock_gateway.requests[key][0].kwargs["json"] == {"scene": 3}
+
+
 async def test_group_state_aggregates_members(coordinator, config_entry):
     group = LunatoneGroupLight(coordinator, config_entry, 0, 0)
     assert group.is_on is False

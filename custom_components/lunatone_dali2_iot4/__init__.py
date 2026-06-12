@@ -136,6 +136,36 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
+async def async_remove_config_entry_device(
+    hass: HomeAssistant, entry: ConfigEntry, device_entry
+) -> bool:
+    """Allow deleting devices that the gateway no longer reports.
+
+    Needed to clean up stale devices from the registry (e.g. phantom input
+    devices created by the pre-beta-2 event decoding bug).
+    """
+    from .coordinator import gear_device_identifier, input_device_identifier
+
+    coordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
+    data = coordinator.data
+    current: set[str] = {entry.entry_id, f"{entry.entry_id}_broadcast"}
+    if data:
+        for device in data.devices.values():
+            current.add(
+                gear_device_identifier(entry.entry_id, device.line, device.address)
+            )
+        for line, address in data.inputs:
+            current.add(input_device_identifier(entry.entry_id, line, address))
+        for line in data.lines_with_devices():
+            current.add(f"{entry.entry_id}_line{line}_groups")
+    identifiers = {
+        identifier[1]
+        for identifier in device_entry.identifiers
+        if identifier[0] == DOMAIN
+    }
+    return not (identifiers & current)
+
+
 async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload the entry when options change."""
     await hass.config_entries.async_reload(entry.entry_id)

@@ -21,6 +21,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .api import LunatoneApiError, LunatoneRestClient
 from .const import (
     BUTTON_ACTIVE_EVENTS,
+    CONF_TRACK_INPUTS,
     CONF_LINES,
     CONF_POLLING_INTERVAL,
     DALI_EVENT,
@@ -78,6 +79,7 @@ class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
         )
         self.entry = entry
         self.client = client
+        self.track_inputs: bool = entry.options.get(CONF_TRACK_INPUTS, True)
         lines = entry.options.get(CONF_LINES)
         self.lines: set[int] | None = {int(line) for line in lines} if lines else None
         self.info: GatewayInfo | None = None
@@ -188,6 +190,16 @@ class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
         result = await self._async_control_device(gw_id, {"dimDown": 1})
         await self.async_request_refresh()
         return result
+
+    async def async_recall_scene(self, gw_id: int, scene: int) -> bool:
+        """Recall a DALI scene (0-15) on one device."""
+        result = await self._async_control_device(gw_id, {"scene": scene})
+        await self.async_request_refresh()
+        return result
+
+    async def async_store_scene(self, gw_id: int, scene: int) -> bool:
+        """Store the device's current level into a DALI scene (0-15)."""
+        return await self._async_control_device(gw_id, {"saveToScene": scene})
 
     async def async_recall_max(self, gw_id: int) -> bool:
         return await self._async_control_device(
@@ -302,6 +314,8 @@ class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
 
     def handle_ws_input_event(self, event: InputEvent) -> None:
         """Handle a DALI-2 input event (button press, occupancy, ...)."""
+        if not self.track_inputs:
+            return
         if self.lines is not None and event.line not in self.lines:
             return
 

@@ -76,4 +76,6 @@ async def coordinator(hass, config_entry, mock_gateway):
     coordinator = LunatoneCoordinator(hass, config_entry, client)
     await coordinator.async_refresh()
     assert coordinator.last_update_success
-    return coordinator
+    yield coordinator
+    # cancel pending debounced refresh timers (e.g. after scene recalls)
+    await coordinator.async_shutdown()

@@ -10,6 +10,7 @@ CONF_PORT: Final = "port"
 CONF_LINES: Final = "lines"
 CONF_POLLING_INTERVAL: Final = "polling_interval"
 CONF_ENABLE_GLOBAL_BROADCAST: Final = "enable_global_broadcast"
+CONF_TRACK_INPUTS: Final = "track_inputs"
 DEFAULT_PORT: Final = 80
 DEFAULT_NAME: Final = "Lunatone DALI"
 DEFAULT_POLLING_INTERVAL: Final = 30  # seconds; one GET /devices per poll

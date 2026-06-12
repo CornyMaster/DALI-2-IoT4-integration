@@ -14,6 +14,7 @@ from custom_components.lunatone_dali2_iot4.api import LunatoneRestClient  # noqa
 from custom_components.lunatone_dali2_iot4.const import (  # noqa: E402
     CONF_HOST,
     CONF_LINES,
+    CONF_TRACK_INPUTS,
     CONF_PORT,
     DALI_EVENT,
     DOMAIN,
@@ -106,6 +107,23 @@ async def test_input_event_outside_line_filter_is_ignored(hass, gw_devices, mock
     coordinator.handle_ws_input_event(InputEvent(1, 5, 0, 1))
     await hass.async_block_till_done()
     assert (1, 5) not in coordinator.data.inputs
+
+
+async def test_input_tracking_can_be_disabled(hass, gw_devices, mock_gateway):
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={CONF_HOST: HOST, CONF_PORT: 80},
+        options={CONF_TRACK_INPUTS: False},
+    )
+    entry.add_to_hass(hass)
+    client = LunatoneRestClient(async_get_clientsession(hass), HOST)
+    coordinator = LunatoneCoordinator(hass, entry, client)
+    await coordinator.async_refresh()
+    assert coordinator.last_update_success
+
+    coordinator.handle_ws_input_event(InputEvent(0, 5, 0, 1))
+    await hass.async_block_till_done()
+    assert coordinator.data.inputs == {}
 
 
 async def test_device_control_uses_gateway_id(coordinator, mock_gateway):

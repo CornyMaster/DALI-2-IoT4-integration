@@ -10,6 +10,8 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import voluptuous as vol
+
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,
     ATTR_COLOR_TEMP_KELVIN,
@@ -113,6 +115,15 @@ async def async_setup_entry(
     platform.async_register_entity_service("step_up", {}, "async_step_up")
     platform.async_register_entity_service("step_down", {}, "async_step_down")
     platform.async_register_entity_service("recall_max", {}, "async_recall_max")
+    scene_schema = {
+        vol.Required("scene"): vol.All(vol.Coerce(int), vol.Range(min=0, max=15))
+    }
+    platform.async_register_entity_service(
+        "recall_scene", scene_schema, "async_recall_scene"
+    )
+    platform.async_register_entity_service(
+        "store_scene", scene_schema, "async_store_scene"
+    )
 
 
 def _color_modes_for(devices: list[LunatoneDevice]) -> tuple[set[ColorMode], ColorMode]:
@@ -267,6 +278,16 @@ class LunatoneDeviceLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
         if device:
             await self.coordinator.async_recall_max(device.gw_id)
 
+    async def async_recall_scene(self, scene: int) -> None:
+        device = self._device
+        if device:
+            await self.coordinator.async_recall_scene(device.gw_id, scene)
+
+    async def async_store_scene(self, scene: int) -> None:
+        device = self._device
+        if device:
+            await self.coordinator.async_store_scene(device.gw_id, scene)
+
 
 class LunatoneGroupLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
     """One DALI group on ONE line; state aggregated from member devices."""
@@ -378,6 +399,17 @@ class LunatoneGroupLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
             self._line, self._group, {"switchable": False}
         )
 
+    async def async_recall_scene(self, scene: int) -> None:
+        await self.coordinator.async_control_group(
+            self._line, self._group, {"scene": scene}
+        )
+        await self.coordinator.async_request_refresh()
+
+    async def async_store_scene(self, scene: int) -> None:
+        await self.coordinator.async_control_group(
+            self._line, self._group, {"saveToScene": scene}
+        )
+
 
 class LunatoneBroadcastLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
     """Broadcast to one line, or to all lines when line is None."""
@@ -485,6 +517,17 @@ class LunatoneBroadcastLight(CoordinatorEntity[LunatoneCoordinator], LightEntity
     async def async_turn_off(self, **kwargs: Any) -> None:
         await self.coordinator.async_control_broadcast(
             {"switchable": False}, line=self._line
+        )
+
+    async def async_recall_scene(self, scene: int) -> None:
+        await self.coordinator.async_control_broadcast(
+            {"scene": scene}, line=self._line
+        )
+        await self.coordinator.async_request_refresh()
+
+    async def async_store_scene(self, scene: int) -> None:
+        await self.coordinator.async_control_broadcast(
+            {"saveToScene": scene}, line=self._line
         )
 
 

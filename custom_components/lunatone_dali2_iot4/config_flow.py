@@ -23,6 +23,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .api import LunatoneApiError, LunatoneRestClient
 from .const import (
     CONF_ENABLE_GLOBAL_BROADCAST,
+    CONF_TRACK_INPUTS,
     CONF_HOST,
     CONF_LINES,
     CONF_POLLING_INTERVAL,
@@ -184,6 +185,12 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_ENABLE_GLOBAL_BROADCAST,
                         default=self.config_entry.options.get(
                             CONF_ENABLE_GLOBAL_BROADCAST, False
+                        ),
+                    ): bool,
+                    vol.Optional(
+                        CONF_TRACK_INPUTS,
+                        default=self.config_entry.options.get(
+                            CONF_TRACK_INPUTS, True
                         ),
                     ): bool,
                 }

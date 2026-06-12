@@ -51,16 +51,28 @@ class InputEvent:
 
 
 def decode_dali2_frame(line: int, dali_data: list[int]) -> InputEvent | None:
-    """Decode a 24-bit DALI-2 frame into an instance event, if it is one."""
+    """Decode a 24-bit DALI-2 frame into an instance event, if it is one.
+
+    Per IEC 62386-103 the bus monitor shows events AND command frames; they
+    are told apart by the LSB of the address byte (0 = event message,
+    1 = command frame, e.g. the gateway's own device queries). We only decode
+    short-address + instance-number scheme events: address byte ``0AAAAAA0``,
+    instance byte ``1NNNNNEE`` (N = instance number, E = event info bits 9:8).
+    """
     if len(dali_data) != 3:
         return None
-    address = dali_data[0] >> 1
-    instance_byte = dali_data[1]
+    address_byte, instance_byte, opcode = dali_data
+    if address_byte & 0x01:
+        return None  # command frame (e.g. gateway query), not an event
+    if address_byte & 0x80:
+        return None  # device-group / instance-scheme event, no short address
     if instance_byte < 128:
-        return None
-    instance = (instance_byte - 128) >> 2
+        return None  # device/instance-type scheme, no instance number
     return InputEvent(
-        line=line, address=address, instance=instance, event_data=dali_data[2]
+        line=line,
+        address=(address_byte >> 1) & 0x3F,
+        instance=(instance_byte - 128) >> 2,
+        event_data=((instance_byte & 0x03) << 8) | opcode,
     )
 
 

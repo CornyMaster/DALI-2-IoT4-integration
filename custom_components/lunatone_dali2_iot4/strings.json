@@ -33,12 +33,14 @@
         "data": {
           "lines": "Managed DALI lines",
           "polling_interval": "Polling interval (seconds)",
-          "enable_global_broadcast": "Enable all-lines broadcast entity"
+          "enable_global_broadcast": "Enable all-lines broadcast entity",
+          "track_inputs": "Track DALI-2 input devices (buttons/sensors)"
         },
         "data_description": {
           "lines": "Lines are detected automatically from the gateway. Deselecting a line removes its entities.",
           "polling_interval": "How often to poll the gateway inventory (5-3600 seconds, default 30). Status changes are also pushed in real time via websocket.",
-          "enable_global_broadcast": "Adds a light entity that broadcasts to ALL lines at once."
+          "enable_global_broadcast": "Adds a light entity that broadcasts to ALL lines at once.",
+          "track_inputs": "Create entities and fire events for DALI-2 input devices discovered via websocket bus events. Disable if you do not want button/sensor entities."
         }
       }
     }

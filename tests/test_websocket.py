@@ -16,8 +16,16 @@ from custom_components.lunatone_dali2_iot4.websocket import (
 
 
 def make_frame(address: int, instance: int, event_data: int) -> list[int]:
-    """Build a 24-bit DALI-2 instance event frame as the gateway reports it."""
-    return [(address << 1) | 1, 128 + (instance << 2), event_data]
+    """Build a 24-bit DALI-2 instance event frame as seen on the bus.
+
+    Event frames carry LSB=0 in the address byte (LSB=1 marks command
+    frames); event info is 10 bits, the top two live in the instance byte.
+    """
+    return [
+        address << 1,
+        128 + (instance << 2) + ((event_data >> 8) & 0x03),
+        event_data & 0xFF,
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -63,6 +71,28 @@ def test_decode_occupancy_events(event_data, expected):
 def test_non_instance_frame_is_ignored():
     # second byte < 128 -> not an instance event
     assert decode_dali2_frame(0, [10, 0x42, 1]) is None
+
+
+def test_command_frames_are_ignored():
+    """LSB=1 marks 24-bit command frames, e.g. the gateway's own queries.
+
+    Regression: QUERY NUMBER OF INSTANCES (0x35) to the instance broadcast
+    (0xFE) must not be decoded as a button event ("Button 31").
+    """
+    for address in range(14):
+        frame = [(address << 1) | 1, 0xFE, 0x35]
+        assert decode_dali2_frame(0, frame) is None
+
+
+def test_non_short_address_events_are_ignored():
+    # bit 7 set in the address byte -> device-group / instance scheme
+    assert decode_dali2_frame(0, [0x80, 0x84, 1]) is None
+    assert decode_dali2_frame(0, [0xFE, 0x84, 1]) is None
+
+
+def test_event_info_uses_all_10_bits():
+    event = decode_dali2_frame(1, [5 << 1, 128 + (2 << 2) + 0b10, 0x01])
+    assert event.event_data == 0b10_0000_0001
 
 
 def test_malformed_frames_are_ignored():

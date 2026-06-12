@@ -18,14 +18,24 @@ from .models import InputDevice, InputInstance
 
 _LOGGER = logging.getLogger(__name__)
 
-STORAGE_VERSION = 1
+STORAGE_VERSION = 2
+
+
+class _InputStore(Store):
+    """Store with migration support for the input registry."""
+
+    async def _async_migrate_func(self, old_major_version, old_minor_version, old_data):
+        # v1 data may contain phantom devices created by misdecoded 24-bit
+        # command frames (gateway queries); discard it and rediscover inputs
+        # from real events.
+        return {"inputs": []}
 
 
 class InputDeviceStore:
     """Stores known input devices keyed by (line, address)."""
 
     def __init__(self, hass: HomeAssistant, entry_id: str) -> None:
-        self._store: Store = Store(
+        self._store: Store = _InputStore(
             hass, STORAGE_VERSION, f"{DOMAIN}.{entry_id}.inputs"
         )
 

@@ -74,3 +74,43 @@ set_feedback_led:
       example: true
       selector:
         boolean:
+
+recall_scene:
+  name: Recall scene
+  description: Recall a DALI scene (0-15) on a light, group or broadcast entity.
+  target:
+    entity:
+      integration: lunatone_dali2_iot4
+      domain: light
+  fields:
+    scene:
+      name: Scene
+      description: DALI scene number (0-15).
+      required: true
+      example: 0
+      selector:
+        number:
+          min: 0
+          max: 15
+          mode: box
+
+store_scene:
+  name: Store scene
+  description: >-
+    Store the current level of a light, group or broadcast target into a
+    DALI scene (0-15).
+  target:
+    entity:
+      integration: lunatone_dali2_iot4
+      domain: light
+  fields:
+    scene:
+      name: Scene
+      description: DALI scene number (0-15).
+      required: true
+      example: 0
+      selector:
+        number:
+          min: 0
+          max: 15
+          mode: box
