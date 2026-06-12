@@ -69,3 +69,4 @@ dev/
 # Release packages
 *.tar.gz
 .venv-wsl/
+*.tar.gz
