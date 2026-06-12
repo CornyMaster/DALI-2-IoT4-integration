@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-beta-4] - 2026-06-12
+
+### Added
+- Input devices (buttons/sensors) are named automatically from the **device
+  description** stored in the device itself (DALI Cockpit "Device
+  Description", memory bank 2): on first discovery the integration reads it
+  via raw 24-bit queries (`POST /dali/sendDali24/{line}`) and uses it as the
+  HA device name (e.g. "Schalter_Küche_L" instead of "Line 0 Input 0").
+  Falls back to the generic name when no description is stored; a manual
+  rename in HA is never overwritten.
+
+
 ## [0.2.0-beta-3] - 2026-06-12
 
 ### Added
@@ -215,7 +227,8 @@ Fork: project renamed to **DALI-2 IoT4 integration** with full multi-line suppor
 - Push button (iT1) state now correctly returns to "off" after short press events
 - Improved binary sensor state handling for momentary vs maintained buttons
 
-[Unreleased]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-3...HEAD
+[Unreleased]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-4...HEAD
+[0.2.0-beta-4]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-3...v0.2.0-beta-4
 [0.2.0-beta-3]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-2...v0.2.0-beta-3
 [0.2.0-beta-2]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-1...v0.2.0-beta-2
 [0.2.0-beta-1]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.1.4-beta-3...v0.2.0-beta-1

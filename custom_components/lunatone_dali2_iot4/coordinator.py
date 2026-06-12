@@ -406,6 +406,9 @@ class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
                 event.line,
                 event.address,
             )
+            # name it from the description stored in the device (Cockpit's
+            # "Device Description", memory bank 2), if there is one
+            self.hass.async_create_task(self._async_fetch_input_device_name(device))
         instance = device.instances.get(event.instance)
         if instance is None:
             # Type is not queryable via REST: /sensors marks occupancy and
@@ -472,6 +475,47 @@ class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
             instance.value = float(event.event_data)
             return None
         return None
+
+    async def _async_fetch_input_device_name(self, device: InputDevice) -> None:
+        """Use the device's stored description as its name, if available."""
+        try:
+            description = await self.client.async_read_input_device_description(
+                device.line, device.address
+            )
+        except LunatoneApiError as err:
+            _LOGGER.debug(
+                "Reading description of input line %d address %d failed: %s",
+                device.line,
+                device.address,
+                err,
+            )
+            description = None
+        if description:
+            device.name = description
+            _LOGGER.info(
+                "Input device line %d address %d is named '%s'",
+                device.line,
+                device.address,
+                description,
+            )
+            # entities may already exist with the default name; update the
+            # registry unless the user renamed the device manually
+            registry = dr.async_get(self.hass)
+            entry = registry.async_get_device(
+                identifiers={
+                    (
+                        DOMAIN,
+                        input_device_identifier(
+                            self.entry.entry_id, device.line, device.address
+                        ),
+                    )
+                }
+            )
+            if entry and not entry.name_by_user:
+                registry.async_update_device(entry.id, name=description)
+        await self._store.async_save(self._inputs)
+        if self.data:
+            self.async_set_updated_data(self.data)
 
     async def _async_reset_momentary_state(
         self, instance: InputInstance, event: InputEvent

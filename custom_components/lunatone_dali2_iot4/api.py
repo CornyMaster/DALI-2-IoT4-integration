@@ -21,6 +21,31 @@ _LOGGER = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT = 10
 
+# Raw 24-bit DALI frames (IEC 62386-103)
+DALI24_MAX_FRAMES_PER_REQUEST = 16  # gateway limit per sendDali24 request
+SPECIAL_DEVICE_ADDRESS = 0xC1  # special device commands (DTR0/DTR1)
+CMD_SET_DTR0 = 0x30
+CMD_SET_DTR1 = 0x31
+CMD_READ_MEMORY_LOCATION = 0x3C
+DEVICE_INSTANCE = 0xFE  # instance byte addressing the device itself
+# Lunatone stores the user-editable device description ("Device Description"
+# in DALI Cockpit, written to the device) in memory bank 2, after a 3-byte
+# header; up to 30 characters, UTF-8.
+DESCRIPTION_MEMORY_BANK = 2
+DESCRIPTION_OFFSET = 3
+DESCRIPTION_MAX_LENGTH = 30
+
+
+def parse_device_description(data: list[Any]) -> str | None:
+    """Extract the description text from memory bank 2 read answers."""
+    raw = bytearray()
+    for value in data[DESCRIPTION_OFFSET:]:
+        if not isinstance(value, int) or value in (0x00, 0xFF):
+            break
+        raw.append(value)
+    text = raw.decode("utf-8", errors="replace").strip()
+    return text or None
+
 
 class LunatoneApiError(Exception):
     """Communication with the gateway failed."""
@@ -133,7 +158,50 @@ class LunatoneRestClient:
     ) -> Any:
         """Send a raw 24-bit DALI frame on one line (used for feedback LEDs)."""
         frame = {"address": address, "instance": instance, "command": command}
-        return await self._request("POST", f"/dali/sendDali24/{line}", json=[frame])
+        return await self.async_send_dali24_frames(line, [frame])
+
+    async def async_send_dali24_frames(
+        self, line: int, frames: list[dict[str, int]]
+    ) -> list[Any]:
+        """Send a batch of raw 24-bit frames; returns one answer per frame."""
+        return await self._request("POST", f"/dali/sendDali24/{line}", json=frames)
+
+    async def async_read_input_device_description(
+        self, line: int, address: int
+    ) -> str | None:
+        """Read the device description of a DALI-2 input device.
+
+        Reads memory bank 2 via DTR1/DTR0 + READ MEMORY LOCATION (queries
+        only, no configuration change). Returns None when no description is
+        stored.
+        """
+        read = {
+            "address": (address << 1) | 1,
+            "instance": DEVICE_INSTANCE,
+            "command": CMD_READ_MEMORY_LOCATION,
+        }
+        setup = [
+            {
+                "address": SPECIAL_DEVICE_ADDRESS,
+                "instance": CMD_SET_DTR1,
+                "command": DESCRIPTION_MEMORY_BANK,
+            },
+            {
+                "address": SPECIAL_DEVICE_ADDRESS,
+                "instance": CMD_SET_DTR0,
+                "command": 0,
+            },
+        ]
+        total = DESCRIPTION_OFFSET + DESCRIPTION_MAX_LENGTH
+        first_reads = DALI24_MAX_FRAMES_PER_REQUEST - len(setup)
+        answers = await self.async_send_dali24_frames(
+            line, setup + [read] * first_reads
+        )
+        data: list[Any] = list(answers[len(setup):])
+        while len(data) < total:
+            chunk = min(DALI24_MAX_FRAMES_PER_REQUEST, total - len(data))
+            data.extend(await self.async_send_dali24_frames(line, [read] * chunk))
+        return parse_device_description(data)
 
     async def async_start_scan(self) -> Any:
         """Trigger the gateway's own device scan, without re-addressing."""

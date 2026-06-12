@@ -43,7 +43,9 @@ unique_ids are based on the stable bus identity (line + address), so they
 survive gateway re-scans that renumber internal device ids.
 
 Device triggers for buttons/sensors are available per instance, and the
-`lunatone_dali2_iot4_event` payload includes the `line`.
+`lunatone_dali2_iot4_event` payload includes the `line`. Input devices are
+named from the description stored in the device (DALI Cockpit "Device
+Description"), read automatically on first discovery.
 
 ## Configuration
 

@@ -84,6 +84,31 @@ async def test_input_event_fires_line_aware_event(hass, coordinator):
     assert instance.state is False
 
 
+async def test_new_input_device_is_named_from_description(hass, coordinator):
+    from unittest.mock import AsyncMock
+
+    coordinator.client.async_read_input_device_description = AsyncMock(
+        return_value="Schalter_Küche_L"
+    )
+    coordinator.handle_ws_input_event(InputEvent(0, 0, 1, 2))
+    await hass.async_block_till_done()
+
+    device = coordinator.data.inputs[(0, 0)]
+    assert device.name == "Schalter_Küche_L"
+    coordinator.client.async_read_input_device_description.assert_awaited_once_with(0, 0)
+
+
+async def test_input_device_keeps_default_name_without_description(hass, coordinator):
+    from unittest.mock import AsyncMock
+
+    coordinator.client.async_read_input_device_description = AsyncMock(
+        return_value=None
+    )
+    coordinator.handle_ws_input_event(InputEvent(3, 7, 0, 1))
+    await hass.async_block_till_done()
+    assert coordinator.data.inputs[(3, 7)].name == "Line 3 Input 7"
+
+
 async def test_same_address_on_two_lines_are_distinct_inputs(hass, coordinator):
     coordinator.handle_ws_input_event(InputEvent(0, 5, 0, 1))
     coordinator.handle_ws_input_event(InputEvent(3, 5, 0, 1))

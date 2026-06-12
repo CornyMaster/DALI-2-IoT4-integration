@@ -10,6 +10,7 @@ from custom_components.lunatone_dali2_iot4.api import (
     LunatoneApiError,
     LunatoneReadOnlyError,
     LunatoneRestClient,
+    parse_device_description,
 )
 
 HOST = "gw.example"
@@ -121,6 +122,41 @@ async def test_http_error_raises_api_error(client):
         mock.get(f"{BASE}/devices", status=500)
         with pytest.raises(LunatoneApiError):
             await client.async_get_devices()
+
+
+def test_parse_device_description_real_bytes():
+    """Bytes as captured from a real Lunatone DALI-2 MC (memory bank 2)."""
+    header = [24, None, 2]
+    text = list("Schalter_Küche_L".encode())
+    padding = [255] * (33 - len(header) - len(text))
+    assert parse_device_description(header + text + padding) == "Schalter_Küche_L"
+
+
+def test_parse_device_description_empty_bank():
+    assert parse_device_description([24, None] + [255] * 31) is None
+
+
+def test_parse_device_description_handles_missing_answers():
+    assert parse_device_description([None, None, None, None]) is None
+
+
+async def test_read_input_device_description_batches(client):
+    """3 batched requests: setup+14 reads, 16 reads, 3 reads (33 bytes)."""
+    text = list("Schalter_Küche_L".encode())
+    bank = [24, None, 2] + text + [255] * (33 - 3 - len(text))
+    with aioresponses() as mock:
+        mock.post(f"{BASE}/dali/sendDali24/0", payload=[None, None] + bank[:14])
+        mock.post(f"{BASE}/dali/sendDali24/0", payload=bank[14:30])
+        mock.post(f"{BASE}/dali/sendDali24/0", payload=bank[30:33])
+        result = await client.async_read_input_device_description(0, 0)
+    assert result == "Schalter_Küche_L"
+    # first request: DTR1=bank2, DTR0=0, then READ MEMORY LOCATION frames
+    key = list(mock.requests.keys())[0]
+    first = mock.requests[key][0].kwargs["json"]
+    assert first[0] == {"address": 0xC1, "instance": 0x31, "command": 2}
+    assert first[1] == {"address": 0xC1, "instance": 0x30, "command": 0}
+    assert first[2] == {"address": 1, "instance": 0xFE, "command": 0x3C}
+    assert len(first) == 16  # gateway limit per request
 
 
 # ---------------------------------------------------------------------------
