@@ -1,4 +1,4 @@
-# Contributing to Lunatone DALI-2 IoT Gateway Integration
+# Contributing to the Lunatone DALI-2 IoT4 Gateway Integration
 
 Thank you for your interest in contributing to this Home Assistant integration!
 
@@ -8,7 +8,7 @@ Thank you for your interest in contributing to this Home Assistant integration!
 
 - Home Assistant development environment
 - Python 3.11 or later
-- Lunatone DALI-2 IoT Gateway device for testing
+- Lunatone DALI-2 IoT or IoT4 gateway for testing
 
 ### Setting Up Development Environment
 

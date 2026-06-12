@@ -1,20 +1,20 @@
 #!/bin/bash
-# Installation script for Lunatone DALI-2 IoT Home Assistant Integration
+# Installation script for Lunatone DALI-2 IoT4 Home Assistant Integration
 
 set -e
 
 echo "============================================================"
-echo "Lunatone DALI-2 IoT Integration Installer"
+echo "Lunatone DALI-2 IoT4 Integration Installer"
 echo "============================================================"
 echo
 
 # Check if Home Assistant config directory is provided
 if [ -z "$1" ]; then
     echo "Usage: $0 <home_assistant_config_directory>"
-    echo "Example: $0 /home/mikko/development/core/config"
+    echo "Example: $0 /path/to/homeassistant/config"
     echo
     echo "Or set the HA_CONFIG environment variable:"
-    echo "  export HA_CONFIG=/home/mikko/development/core/config"
+    echo "  export HA_CONFIG=/path/to/homeassistant/config"
     echo "  $0"
     exit 1
 fi
@@ -50,7 +50,7 @@ echo "✓ custom_components directory ready"
 echo
 
 # Copy integration files
-echo "Installing Lunatone DALI-2 IoT integration..."
+echo "Installing Lunatone DALI-2 IoT4 integration..."
 INTEGRATION_DIR="$CUSTOM_DIR/dali_lunatone"
 
 if [ -d "$INTEGRATION_DIR" ]; then
@@ -89,9 +89,9 @@ echo "Next steps:"
 echo "  1. Restart Home Assistant"
 echo "  2. Go to Settings → Devices & Services"
 echo "  3. Click '+ Add Integration'"
-echo "  4. Search for 'Lunatone DALI-2 IoT'"
+echo "  4. Search for 'Lunatone DALI-2 IoT4'"
 echo "  5. Enter your device details:"
-echo "     - IP Address: 192.168.5.70"
+echo "     - IP Address: <gateway-ip>"
 echo "     - Port: 80"
 echo
 echo "For debug logging, add to configuration.yaml:"

@@ -15,12 +15,12 @@ HACS (Home Assistant Community Store) provides the easiest installation and auto
    - Open HACS in Home Assistant
    - Click the three dots menu (⋮) in the top right
    - Select "Custom repositories"
-   - Add repository URL: `https://github.com/martsola/DALI-2-IoT4-integration`
+   - Add repository URL: `https://github.com/CornyMaster/DALI-2-IoT4-integration`
    - Category: "Integration"
    - Click "Add"
 
 2. **Install Integration:**
-   - In HACS, search for "Lunatone DALI-2 IoT"
+   - In HACS, search for "Lunatone DALI-2 IoT4"
    - Click on the integration
    - Click "Download"
    - Restart Home Assistant
@@ -28,7 +28,7 @@ HACS (Home Assistant Community Store) provides the easiest installation and auto
 3. **Configure Integration:**
    - Go to **Settings → Devices & Services**
    - Click **+ Add Integration**
-   - Search for "Lunatone DALI-2 IoT"
+   - Search for "Lunatone DALI-2 IoT4"
    - Enter connection details:
      - **Host**: IP address of your Lunatone DALI-2 IoT4 Gateway (e.g., `192.168.1.100`)
      - **Port**: `80` (default WebSocket port)
@@ -39,7 +39,7 @@ HACS (Home Assistant Community Store) provides the easiest installation and auto
 ### Method 2: Manual Installation from GitHub Release
 
 1. **Download Latest Release:**
-   - Go to [Releases](https://github.com/martsola/DALI-2-IoT4-integration/releases)
+   - Go to [Releases](https://github.com/CornyMaster/DALI-2-IoT4-integration/releases)
    - Download the latest `dali_lunatone.zip` file
 
 2. **Extract to Custom Components:**
@@ -89,7 +89,7 @@ After setup, verify the integration is working:
 
 1. **Check Entities:**
    - Go to **Settings → Devices & Services**
-   - Find "Lunatone DALI-2 IoT"
+   - Find "Lunatone DALI-2 IoT4"
    - Click on it to see all entities
 
 2. **Expected Entities:**

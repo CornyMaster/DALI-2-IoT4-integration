@@ -1,5 +1,5 @@
 name: Feature Request
-description: Suggest a new feature or enhancement for the Lunatone DALI-2 IoT Gateway integration
+description: Suggest a new feature or enhancement for the Lunatone DALI-2 IoT4 Gateway integration
 labels: ["enhancement"]
 body:
   - type: markdown
