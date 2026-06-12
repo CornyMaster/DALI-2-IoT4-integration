@@ -21,7 +21,7 @@ Thank you for your interest in contributing to this Home Assistant integration!
 2. Create a symbolic link in your Home Assistant config:
    ```bash
    cd /path/to/homeassistant/config/custom_components
-   ln -s /path/to/DALI-2-IoT4-integration/custom_components/dali_lunatone dali_lunatone
+   ln -s /path/to/DALI-2-IoT4-integration/custom_components/lunatone_dali2_iot4 lunatone_dali2_iot4
    ```
 
 3. Restart Home Assistant
@@ -31,7 +31,7 @@ Thank you for your interest in contributing to this Home Assistant integration!
    logger:
      default: info
      logs:
-       custom_components.dali_lunatone: debug
+       custom_components.lunatone_dali2_iot4: debug
    ```
 
 ## Code Style
@@ -47,7 +47,7 @@ Before submitting a pull request:
 
 1. **Validate Python syntax:**
    ```bash
-   python -m py_compile custom_components/dali_lunatone/*.py
+   python -m py_compile custom_components/lunatone_dali2_iot4/*.py
    ```
 
 2. **Test with your Home Assistant instance:**
@@ -115,7 +115,7 @@ Use the [Feature Request template](.github/ISSUE_TEMPLATE/feature_request.yml) a
 ## Project Structure
 
 ```
-custom_components/dali_lunatone/
+custom_components/lunatone_dali2_iot4/
 ├── __init__.py           # Integration setup, services
 ├── manifest.json         # Integration metadata
 ├── strings.json          # Translation strings

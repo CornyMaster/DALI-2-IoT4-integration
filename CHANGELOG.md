@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Fork: project renamed to **DALI-2 IoT4 integration** with full multi-line support.
 
 ### Changed (BREAKING)
+- Integration domain renamed from `dali_lunatone` to `lunatone_dali2_iot4`:
+  new folder name, new service names (`lunatone_dali2_iot4.*`) and new
+  event name `lunatone_dali2_iot4_event`.
 - Complete rewrite around the gateway's REST API. `GET /devices` is now the
   source of truth (line-aware, includes live state); the integration-side
   DALI bus scan and its device storage were removed.
@@ -34,7 +37,7 @@ Fork: project renamed to **DALI-2 IoT4 integration** with full multi-line suppor
 - Group light state is aggregated from member devices (on = any member on,
   brightness = max) instead of assumed.
 - Broadcast entity per line + optional all-lines broadcast (disabled by default).
-- DALI-2 input events carry the `line` in the `dali_lunatone_event` payload.
+- DALI-2 input events carry the `line` in the `lunatone_dali2_iot4_event` payload.
 - Websocket `devices` push merges live state between polls.
 - Test suite: unit tests on real gateway fixtures, HA integration tests,
   opt-in read-only live tests (`LUNATONE_GW_HOST` + `-m gateway`).

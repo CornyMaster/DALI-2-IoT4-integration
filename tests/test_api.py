@@ -6,7 +6,7 @@ import aiohttp
 import pytest
 from aioresponses import aioresponses
 
-from custom_components.dali_lunatone.api import (
+from custom_components.lunatone_dali2_iot4.api import (
     LunatoneApiError,
     LunatoneReadOnlyError,
     LunatoneRestClient,
@@ -136,7 +136,7 @@ requires_gateway = pytest.mark.skipif(
 @pytest.mark.gateway
 @requires_gateway
 async def test_live_inventory_is_line_aware(session):
-    from custom_components.dali_lunatone.models import LunatoneData
+    from custom_components.lunatone_dali2_iot4.models import LunatoneData
 
     client = LunatoneRestClient(
         session, os.environ["LUNATONE_GW_HOST"], read_only=True

@@ -1,4 +1,4 @@
-"""Shared fixtures for dali_lunatone tests."""
+"""Shared fixtures for lunatone_dali2_iot4 tests."""
 
 import json
 import sys
@@ -9,7 +9,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
-# Make `custom_components.dali_lunatone.<module>` importable without a Home
+# Make `custom_components.lunatone_dali2_iot4.<module>` importable without a Home
 # Assistant install: register the package namespaces manually so importing a
 # submodule does not execute the package __init__.py (which needs HA). With HA
 # installed (e.g. in the WSL test env) only the parent namespace is faked so
@@ -23,8 +23,8 @@ _fake_packages = [("custom_components", REPO_ROOT / "custom_components")]
 if not HAS_HA:
     _fake_packages.append(
         (
-            "custom_components.dali_lunatone",
-            REPO_ROOT / "custom_components" / "dali_lunatone",
+            "custom_components.lunatone_dali2_iot4",
+            REPO_ROOT / "custom_components" / "lunatone_dali2_iot4",
         )
     )
 

@@ -51,7 +51,7 @@ echo
 
 # Copy integration files
 echo "Installing Lunatone DALI-2 IoT4 integration..."
-INTEGRATION_DIR="$CUSTOM_DIR/dali_lunatone"
+INTEGRATION_DIR="$CUSTOM_DIR/lunatone_dali2_iot4"
 
 if [ -d "$INTEGRATION_DIR" ]; then
     echo "⚠ Integration already exists at $INTEGRATION_DIR"
@@ -65,7 +65,7 @@ if [ -d "$INTEGRATION_DIR" ]; then
 fi
 
 # Copy files
-cp -r "$(dirname "$0")/custom_components/dali_lunatone" "$INTEGRATION_DIR"
+cp -r "$(dirname "$0")/custom_components/lunatone_dali2_iot4" "$INTEGRATION_DIR"
 
 echo "✓ Integration files copied to $INTEGRATION_DIR"
 echo
@@ -97,7 +97,7 @@ echo
 echo "For debug logging, add to configuration.yaml:"
 echo "  logger:"
 echo "    logs:"
-echo "      custom_components.dali_lunatone: debug"
+echo "      custom_components.lunatone_dali2_iot4: debug"
 echo
 echo "Integration installed at: $INTEGRATION_DIR"
 echo

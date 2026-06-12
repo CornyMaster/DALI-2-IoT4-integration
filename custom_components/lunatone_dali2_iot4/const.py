@@ -1,7 +1,7 @@
 """Constants for the Lunatone DALI-2 IoT integration."""
 from typing import Final
 
-DOMAIN: Final = "dali_lunatone"
+DOMAIN: Final = "lunatone_dali2_iot4"
 PLATFORMS: Final = ["light", "binary_sensor", "sensor", "button"]
 
 # Configuration

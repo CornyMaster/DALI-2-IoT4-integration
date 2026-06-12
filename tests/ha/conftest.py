@@ -12,13 +12,13 @@ from aioresponses import aioresponses  # noqa: E402
 from homeassistant.helpers.aiohttp_client import async_get_clientsession  # noqa: E402
 from pytest_homeassistant_custom_component.common import MockConfigEntry  # noqa: E402
 
-from custom_components.dali_lunatone.api import LunatoneRestClient  # noqa: E402
-from custom_components.dali_lunatone.const import (  # noqa: E402
+from custom_components.lunatone_dali2_iot4.api import LunatoneRestClient  # noqa: E402
+from custom_components.lunatone_dali2_iot4.const import (  # noqa: E402
     CONF_HOST,
     CONF_PORT,
     DOMAIN,
 )
-from custom_components.dali_lunatone.coordinator import LunatoneCoordinator  # noqa: E402
+from custom_components.lunatone_dali2_iot4.coordinator import LunatoneCoordinator  # noqa: E402
 
 HOST = "gw.example"
 BASE = f"http://{HOST}"

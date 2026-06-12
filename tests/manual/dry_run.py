@@ -17,17 +17,18 @@ import aiohttp
 
 # Import submodules without executing the package __init__ (which needs HA)
 REPO_ROOT = Path(__file__).resolve().parents[2]
+COMPONENTS = REPO_ROOT / "custom_components"
 for pkg_name, pkg_path in (
-    ("custom_components", REPO_ROOT / "custom_components"),
-    ("custom_components.dali_lunatone", REPO_ROOT / "custom_components" / "dali_lunatone"),
+    ("custom_components", COMPONENTS),
+    ("custom_components.lunatone_dali2_iot4", COMPONENTS / "lunatone_dali2_iot4"),
 ):
     module = types.ModuleType(pkg_name)
     module.__path__ = [str(pkg_path)]
     sys.modules.setdefault(pkg_name, module)
 
-from custom_components.dali_lunatone.api import LunatoneRestClient  # noqa: E402
-from custom_components.dali_lunatone.models import LunatoneData  # noqa: E402
-from custom_components.dali_lunatone.websocket import LunatoneWsListener  # noqa: E402
+from custom_components.lunatone_dali2_iot4.api import LunatoneRestClient  # noqa: E402
+from custom_components.lunatone_dali2_iot4.models import LunatoneData  # noqa: E402
+from custom_components.lunatone_dali2_iot4.websocket import LunatoneWsListener  # noqa: E402
 
 HOST = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("LUNATONE_GW_HOST")
 if not HOST:

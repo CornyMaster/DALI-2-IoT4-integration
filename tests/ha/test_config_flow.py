@@ -11,7 +11,7 @@ from aioresponses import aioresponses  # noqa: E402
 from homeassistant import config_entries  # noqa: E402
 from homeassistant.data_entry_flow import FlowResultType  # noqa: E402
 
-from custom_components.dali_lunatone.const import (  # noqa: E402
+from custom_components.lunatone_dali2_iot4.const import (  # noqa: E402
     CONF_ENABLE_GLOBAL_BROADCAST,
     CONF_HOST,
     CONF_LINES,
@@ -45,7 +45,7 @@ async def test_full_flow_detects_4_lines(hass, mock_gateway):
     }
 
     with patch(
-        "custom_components.dali_lunatone.async_setup_entry", return_value=True
+        "custom_components.lunatone_dali2_iot4.async_setup_entry", return_value=True
     ):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {CONF_LINES: ["0", "1", "3"]}

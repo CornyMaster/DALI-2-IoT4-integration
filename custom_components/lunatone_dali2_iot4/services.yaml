@@ -12,7 +12,7 @@ step_up:
   description: Increase brightness by one step.
   target:
     entity:
-      integration: dali_lunatone
+      integration: lunatone_dali2_iot4
       domain: light
 
 step_down:
@@ -20,7 +20,7 @@ step_down:
   description: Decrease brightness by one step.
   target:
     entity:
-      integration: dali_lunatone
+      integration: lunatone_dali2_iot4
       domain: light
 
 recall_max:
@@ -28,7 +28,7 @@ recall_max:
   description: Turn light on to maximum brightness.
   target:
     entity:
-      integration: dali_lunatone
+      integration: lunatone_dali2_iot4
       domain: light
 
 set_feedback_led:

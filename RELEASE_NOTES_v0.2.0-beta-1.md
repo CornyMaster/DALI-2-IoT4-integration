@@ -30,6 +30,9 @@ line 0.
   member devices.
 
 ## Breaking changes
+- Integration domain renamed from `dali_lunatone` to `lunatone_dali2_iot4`:
+  new folder name, new service names (`lunatone_dali2_iot4.*`) and new
+  event name `lunatone_dali2_iot4_event`.
 
 - All unique_ids changed (now line-aware: `…_line{L}_dali_{A}` etc.).
   Entities created by 0.1.x appear as new entities; remove the old ones.

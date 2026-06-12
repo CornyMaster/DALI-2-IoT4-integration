@@ -40,14 +40,14 @@ HACS (Home Assistant Community Store) provides the easiest installation and auto
 
 1. **Download Latest Release:**
    - Go to [Releases](https://github.com/CornyMaster/DALI-2-IoT4-integration/releases)
-   - Download the latest `dali_lunatone.zip` file
+   - Download the latest `lunatone_dali2_iot4.zip` file
 
 2. **Extract to Custom Components:**
    ```bash
    # From your Home Assistant config directory
    cd /path/to/homeassistant/config
    mkdir -p custom_components
-   unzip dali_lunatone.zip -d custom_components/
+   unzip lunatone_dali2_iot4.zip -d custom_components/
    ```
 
 3. **Restart Home Assistant:**
@@ -65,14 +65,14 @@ For development or testing unreleased versions:
 # From your Home Assistant config directory
 cd /path/to/homeassistant/config
 mkdir -p custom_components
-cp -r /path/to/DALI-2-IoT4-integration/custom_components/dali_lunatone custom_components/
+cp -r /path/to/DALI-2-IoT4-integration/custom_components/lunatone_dali2_iot4 custom_components/
 ```
 
 Or create a symbolic link for development:
 
 ```bash
 cd /path/to/homeassistant/config/custom_components
-ln -s /path/to/DALI-2-IoT4-integration/custom_components/dali_lunatone dali_lunatone
+ln -s /path/to/DALI-2-IoT4-integration/custom_components/lunatone_dali2_iot4 lunatone_dali2_iot4
 ```
 
 Then restart Home Assistant and configure as described above.
@@ -117,21 +117,21 @@ After setup, verify the integration is working:
 
 ### Integration Services
 
-**`dali_lunatone.rescan_devices`**
+**`lunatone_dali2_iot4.rescan_devices`**
 - Rescans the DALI bus for new/changed devices
 - Use when adding or removing devices from the bus
 
 ### Light Services
 
-**`dali_lunatone.step_up`**
+**`lunatone_dali2_iot4.step_up`**
 - Increase brightness by one step
 - Target: Individual light entities
 
-**`dali_lunatone.step_down`**
+**`lunatone_dali2_iot4.step_down`**
 - Decrease brightness by one step
 - Target: Individual light entities
 
-**`dali_lunatone.recall_max`**
+**`lunatone_dali2_iot4.recall_max`**
 - Turn light on to maximum brightness (100%)
 - Target: Individual light entities
 
@@ -157,12 +157,12 @@ data:
   color_temp: 370  # 2700K (mirek value)
 
 # Step up brightness
-service: dali_lunatone.step_up
+service: lunatone_dali2_iot4.step_up
 target:
   entity_id: light.dali_device_22
 
 # Recall maximum
-service: dali_lunatone.recall_max
+service: lunatone_dali2_iot4.recall_max
 target:
   entity_id: light.dali_device_22
 
@@ -185,7 +185,7 @@ data:
 
 ```yaml
 # Rescan for devices
-service: dali_lunatone.rescan_devices
+service: lunatone_dali2_iot4.rescan_devices
 ```
 
 ## Troubleshooting
@@ -202,7 +202,7 @@ service: dali_lunatone.rescan_devices
 
 2. Check Home Assistant logs:
    ```bash
-   ha core logs | grep dali_lunatone
+   ha core logs | grep lunatone_dali2_iot4
    ```
 
 ### Lights Not Responding
@@ -212,7 +212,7 @@ service: dali_lunatone.rescan_devices
    logger:
      default: info
      logs:
-       custom_components.dali_lunatone: debug
+       custom_components.lunatone_dali2_iot4: debug
    ```
 
 2. Restart Home Assistant
@@ -224,12 +224,12 @@ service: dali_lunatone.rescan_devices
 1. Validate Python syntax:
    ```bash
    cd /path/to/DALI-2-IoT4-integration
-   python3 -m py_compile custom_components/dali_lunatone/*.py
+   python3 -m py_compile custom_components/lunatone_dali2_iot4/*.py
    ```
 
 2. Check manifest.json is valid:
    ```bash
-   cat custom_components/dali_lunatone/manifest.json | python3 -m json.tool
+   cat custom_components/lunatone_dali2_iot4/manifest.json | python3 -m json.tool
    ```
 
 ## Features Implemented
@@ -282,7 +282,7 @@ service: dali_lunatone.rescan_devices
 ### Project Structure
 
 ```
-custom_components/dali_lunatone/
+custom_components/lunatone_dali2_iot4/
 ├── __init__.py           # Integration setup, services
 ├── manifest.json         # Integration metadata
 ├── strings.json          # Translation strings
@@ -306,8 +306,8 @@ For issues or questions:
    logger:
      default: info
      logs:
-       custom_components.dali_lunatone: debug
+       custom_components.lunatone_dali2_iot4: debug
    ```
-2. Check logs: `ha core logs | grep dali_lunatone`
+2. Check logs: `ha core logs | grep lunatone_dali2_iot4`
 3. Check CHANGELOG.md for version history
 4. Report issues on GitHub

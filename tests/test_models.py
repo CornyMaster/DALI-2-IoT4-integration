@@ -1,6 +1,6 @@
 """Tests for the line-aware data models, using real gateway fixtures."""
 
-from custom_components.dali_lunatone.models import (
+from custom_components.lunatone_dali2_iot4.models import (
     GatewayInfo,
     LunatoneData,
     LunatoneDevice,

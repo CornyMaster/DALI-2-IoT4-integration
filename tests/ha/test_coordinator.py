@@ -10,16 +10,16 @@ from pytest_homeassistant_custom_component.common import (  # noqa: E402
     async_capture_events,
 )
 
-from custom_components.dali_lunatone.api import LunatoneRestClient  # noqa: E402
-from custom_components.dali_lunatone.const import (  # noqa: E402
+from custom_components.lunatone_dali2_iot4.api import LunatoneRestClient  # noqa: E402
+from custom_components.lunatone_dali2_iot4.const import (  # noqa: E402
     CONF_HOST,
     CONF_LINES,
     CONF_PORT,
     DALI_EVENT,
     DOMAIN,
 )
-from custom_components.dali_lunatone.coordinator import LunatoneCoordinator  # noqa: E402
-from custom_components.dali_lunatone.websocket import InputEvent  # noqa: E402
+from custom_components.lunatone_dali2_iot4.coordinator import LunatoneCoordinator  # noqa: E402
+from custom_components.lunatone_dali2_iot4.websocket import InputEvent  # noqa: E402
 
 from .conftest import BASE, HOST  # noqa: E402
 

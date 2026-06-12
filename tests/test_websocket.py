@@ -6,7 +6,7 @@ import aiohttp
 import pytest
 from aiohttp import web
 
-from custom_components.dali_lunatone.websocket import (
+from custom_components.lunatone_dali2_iot4.websocket import (
     InputEvent,
     LunatoneWsListener,
     decode_button_event,

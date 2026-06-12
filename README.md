@@ -43,7 +43,7 @@ unique_ids are based on the stable bus identity (line + address), so they
 survive gateway re-scans that renumber internal device ids.
 
 Device triggers for buttons/sensors are available per instance, and the
-`dali_lunatone_event` payload includes the `line`.
+`lunatone_dali2_iot4_event` payload includes the `line`.
 
 ## Configuration
 
@@ -58,9 +58,9 @@ optional all-lines broadcast entity.
 
 ## Services
 
-- `dali_lunatone.rescan_devices` — start the gateway's device scan
-- `dali_lunatone.step_up` / `step_down` / `recall_max` — entity services on lights
-- `dali_lunatone.set_feedback_led` — control a button's indicator LED by
+- `lunatone_dali2_iot4.rescan_devices` — start the gateway's device scan
+- `lunatone_dali2_iot4.step_up` / `step_down` / `recall_max` — entity services on lights
+- `lunatone_dali2_iot4.set_feedback_led` — control a button's indicator LED by
   line / address / instance
 
 ## Requirements
@@ -76,7 +76,7 @@ repository (category "Integration") and install "Lunatone DALI-2 IoT4".
 
 [![Open your Home Assistant instance and open this repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=CornyMaster&repository=DALI-2-IoT4-integration&category=integration)
 
-**Manual:** copy `custom_components/dali_lunatone` into your Home Assistant
+**Manual:** copy `custom_components/lunatone_dali2_iot4` into your Home Assistant
 `config/custom_components/` directory and restart.
 
 ## Breaking changes vs. upstream (v0.2.0)

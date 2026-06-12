@@ -28,7 +28,7 @@ pytest tests/ha
 ```
 
 Covers the coordinator (inventory, line filter, websocket merge, line-aware
-`dali_lunatone_event`), light entities (unique ids, group aggregation,
+`lunatone_dali2_iot4_event`), light entities (unique ids, group aggregation,
 line-targeted control) and the config flow (auto-detected line count,
 line selection).
 

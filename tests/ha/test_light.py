@@ -6,7 +6,7 @@ pytest.importorskip("homeassistant")
 
 from yarl import URL  # noqa: E402
 
-from custom_components.dali_lunatone.light import (  # noqa: E402
+from custom_components.lunatone_dali2_iot4.light import (  # noqa: E402
     LunatoneBroadcastLight,
     LunatoneDeviceLight,
     LunatoneGroupLight,
