@@ -25,7 +25,10 @@ async def async_setup_entry(
     coordinator: LunatoneCoordinator = hass.data[DOMAIN][config_entry.entry_id][
         DATA_COORDINATOR
     ]
-    async_add_entities([GatewayScanButton(coordinator, config_entry)])
+    buttons: list[ButtonEntity] = [GatewayScanButton(coordinator, config_entry)]
+    if coordinator.track_inputs:
+        buttons.append(RefreshInputNamesButton(coordinator, config_entry))
+    async_add_entities(buttons)
 
 
 class GatewayScanButton(ButtonEntity):
@@ -53,3 +56,29 @@ class GatewayScanButton(ButtonEntity):
             _LOGGER.error("Gateway scan failed to start: %s", err)
             return
         await self._coordinator.async_request_refresh()
+
+
+class RefreshInputNamesButton(ButtonEntity):
+    """Re-reads the names of all known DALI-2 input devices from the bus.
+
+    Note: this does not discover new switches — DALI-2 input devices are only
+    found when physically pressed (the gateway scan finds control gear only).
+    It repairs names that were stored garbled or truncated.
+    """
+
+    _attr_name = "Refresh input names"
+    _attr_icon = "mdi:rename-box"
+
+    def __init__(
+        self,
+        coordinator: LunatoneCoordinator,
+        config_entry: ConfigEntry,
+    ) -> None:
+        self._coordinator = coordinator
+        self._attr_unique_id = f"{config_entry.entry_id}_refresh_input_names"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, config_entry.entry_id)},
+        )
+
+    async def async_press(self) -> None:
+        await self._coordinator.async_refresh_input_names()

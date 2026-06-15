@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-beta-6] - 2026-06-15
+
+### Fixed
+- Input-device entities (buttons/switches, feedback LEDs) are now created in
+  **instance order** instead of discovery order, so a switch's buttons are no
+  longer listed in the order they happened to be pressed. Already-discovered
+  devices keep their existing order in the registry — delete the input device
+  (now possible, see below) and restart HA to recreate its buttons sorted.
+
+### Changed
+- Any device of this integration can now be **deleted from the Home Assistant
+  UI** (lamp, group, switch, gateway), not just stale/phantom devices. A
+  device that is still present on the bus reappears on the next gateway poll
+  (or, for switches, on the next button press) — to remove it permanently,
+  deselect its line in the options, disable its entities, or remove the
+  integration.
+
+### Added
+- "Refresh input names" button on the gateway device (shown when input
+  tracking is enabled) — exposes the `refresh_input_names` service as a button.
+- README note clarifying that DALI-2 input devices (switches) are **not** found
+  by the device scan (which finds control gear only); they are discovered
+  automatically when physically pressed.
+
 ## [0.2.0-beta-5] - 2026-06-15
 
 ### Changed
@@ -258,7 +282,8 @@ Fork: project renamed to **DALI-2 IoT4 integration** with full multi-line suppor
 - Push button (iT1) state now correctly returns to "off" after short press events
 - Improved binary sensor state handling for momentary vs maintained buttons
 
-[Unreleased]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-5...HEAD
+[Unreleased]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-6...HEAD
+[0.2.0-beta-6]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-5...v0.2.0-beta-6
 [0.2.0-beta-5]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-4...v0.2.0-beta-5
 [0.2.0-beta-4]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-3...v0.2.0-beta-4
 [0.2.0-beta-3]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-2...v0.2.0-beta-3

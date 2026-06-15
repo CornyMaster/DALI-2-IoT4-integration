@@ -97,8 +97,8 @@ async def async_setup_entry(
             global_broadcast_added = True
             new_entities.append(LunatoneBroadcastLight(coordinator, entry, None))
 
-        for (line, address), input_device in data.inputs.items():
-            for instance_num, instance in input_device.instances.items():
+        for (line, address), input_device in sorted(data.inputs.items()):
+            for instance_num, instance in sorted(input_device.instances.items()):
                 led_key = (line, address, instance_num)
                 if instance.has_feedback_led and led_key not in known_leds:
                     known_leds.add(led_key)

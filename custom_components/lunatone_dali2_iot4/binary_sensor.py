@@ -57,8 +57,11 @@ async def async_setup_entry(
         if not data:
             return
         new_entities = []
-        for (line, address), input_device in data.inputs.items():
-            for instance_num, instance in input_device.instances.items():
+        # Sorted so that, when a device is created in one go (startup from
+        # storage, or after a delete), its instances are added in instance
+        # order — HA shows device entities in registry/creation order.
+        for (line, address), input_device in sorted(data.inputs.items()):
+            for instance_num, instance in sorted(input_device.instances.items()):
                 key = (line, address, instance_num)
                 if key in known or instance.instance_type not in BINARY_INSTANCE_TYPES:
                     continue

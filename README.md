@@ -38,6 +38,7 @@ IoT4 the original entities collided and all commands went to line 0 only.
 | Sensor (light level) | line + address + instance | `…_line{L}_input_{A}_inst{I}` |
 | Light (feedback LED) | line + address + instance | `…_line{L}_input_{A}_led_{I}` |
 | Button (gateway scan) | gateway | `…_manual_scan` |
+| Button (refresh input names) | gateway | `…_refresh_input_names` |
 
 unique_ids are based on the stable bus identity (line + address), so they
 survive gateway re-scans that renumber internal device ids.
@@ -52,7 +53,16 @@ Device triggers for buttons/sensors are available per instance, and the
 named from the description stored in the device (DALI Cockpit "Device
 Description"), read automatically on first discovery. The read is serialized
 per line and retried on bus NAKs, so names are not truncated or garbled; use
-the `refresh_input_names` service to re-read them on demand.
+the `refresh_input_names` service (or the "Refresh input names" button) to
+re-read them on demand.
+
+> **Discovering switches:** DALI-2 input devices (buttons/switches) are **not**
+> found by the "Scan for devices" button — the gateway scan only enumerates
+> control gear (lamps). Input devices are discovered **automatically when you
+> physically press them** (the integration listens to bus events over the
+> websocket). So to add a switch, press it once and it appears in HA. This also
+> requires the DALI-2 MC to be configured to send events (see the wiki / DALI
+> Cockpit setup), not just act as a direct application controller.
 
 ## Configuration
 

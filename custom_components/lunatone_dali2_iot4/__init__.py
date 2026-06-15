@@ -148,36 +148,15 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_remove_config_entry_device(
     hass: HomeAssistant, entry: ConfigEntry, device_entry
 ) -> bool:
-    """Allow deleting devices that the gateway no longer reports.
+    """Allow deleting any device of this integration from the HA UI.
 
-    Needed to clean up stale devices from the registry (e.g. phantom input
-    devices created by the pre-beta-2 event decoding bug).
+    This includes stale/phantom devices and devices the gateway still
+    reports. Note: a device that is still present on the bus reappears on the
+    next gateway poll (or, for input devices, on the next bus event) — to
+    remove it permanently, deselect its line in the options, disable its
+    entities, or remove the integration.
     """
-    from .coordinator import (
-        gear_device_identifier,
-        group_device_identifier,
-        input_device_identifier,
-    )
-
-    coordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
-    data = coordinator.data
-    current: set[str] = {entry.entry_id, f"{entry.entry_id}_broadcast"}
-    if data:
-        for device in data.devices.values():
-            current.add(
-                gear_device_identifier(entry.entry_id, device.line, device.address)
-            )
-        for line, address in data.inputs:
-            current.add(input_device_identifier(entry.entry_id, line, address))
-        for line, group in data.groups_with_members():
-            if group <= 15:
-                current.add(group_device_identifier(entry.entry_id, line, group))
-    identifiers = {
-        identifier[1]
-        for identifier in device_entry.identifiers
-        if identifier[0] == DOMAIN
-    }
-    return not (identifiers & current)
+    return True
 
 
 async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
