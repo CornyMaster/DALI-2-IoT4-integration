@@ -2,7 +2,7 @@
 from typing import Final
 
 DOMAIN: Final = "lunatone_dali2_iot4"
-PLATFORMS: Final = ["light", "binary_sensor", "sensor", "button"]
+PLATFORMS: Final = ["light", "binary_sensor", "sensor", "button", "switch"]
 
 # Configuration
 CONF_HOST: Final = "host"

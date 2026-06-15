@@ -56,6 +56,8 @@ class GatewayScanButton(ButtonEntity):
             _LOGGER.error("Gateway scan failed to start: %s", err)
             return
         await self._coordinator.async_request_refresh()
+        # Pick up scenes configured since startup -> new scene switches.
+        await self._coordinator.async_refresh_all_scenes()
 
 
 class RefreshInputNamesButton(ButtonEntity):

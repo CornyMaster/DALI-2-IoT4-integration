@@ -128,6 +128,22 @@ async def test_refresh_input_names_repairs_persisted_name(hass, coordinator):
     coordinator.client.async_read_input_device_description.assert_awaited_with(2, 0)
 
 
+async def test_refresh_all_scenes_picks_up_new_scene(coordinator):
+    """A scene configured after startup is detected on a rescan refresh."""
+    from unittest.mock import AsyncMock
+
+    async def fake_scenes(gw_id):
+        base = {str(s): {"dimmable": None} for s in range(16)}
+        if gw_id == 24:  # device 24 is on line 2
+            base["5"] = {"dimmable": 50.0}
+        return base
+
+    assert (2, 5) not in coordinator.configured_scenes()
+    coordinator.client.async_get_device_scenes = AsyncMock(side_effect=fake_scenes)
+    await coordinator.async_refresh_all_scenes()
+    assert (2, 5) in coordinator.configured_scenes()
+
+
 async def test_same_address_on_two_lines_are_distinct_inputs(hass, coordinator):
     coordinator.handle_ws_input_event(InputEvent(0, 5, 0, 1))
     coordinator.handle_ws_input_event(InputEvent(3, 5, 0, 1))

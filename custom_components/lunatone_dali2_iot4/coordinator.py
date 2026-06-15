@@ -70,6 +70,11 @@ def group_device_identifier(entry_id: str, line: int, group: int) -> str:
     return f"{entry_id}_line{line}_group{group}"
 
 
+def scene_device_identifier(entry_id: str, line: int, scene: int) -> str:
+    """Registry identifier for a single DALI scene on one line."""
+    return f"{entry_id}_line{line}_scene{scene}"
+
+
 class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
     """Polls the REST inventory and merges websocket push events."""
 
@@ -171,6 +176,35 @@ class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
         if self.data and gw_id in self.data.devices:
             self.data.devices[gw_id].scenes = self._scenes[gw_id]
             self.async_set_updated_data(self.data)
+
+    async def async_refresh_all_scenes(self) -> None:
+        """Re-read the stored scenes of every device (e.g. after a rescan).
+
+        Stored scenes are otherwise only read once at startup; this picks up
+        scenes that were configured later (in DALI Cockpit or via store_scene)
+        so they appear as scene switches.
+        """
+        data = self.data
+        if not data:
+            return
+        await self._async_fetch_all_scenes(data)
+        for gw_id, device in data.devices.items():
+            device.scenes = self._scenes.get(gw_id, {})
+        self.async_set_updated_data(data)
+
+    def configured_scenes(self) -> set[tuple[int, int]]:
+        """(line, scene) pairs with a stored value on at least one device."""
+        result: set[tuple[int, int]] = set()
+        data = self.data
+        if not data:
+            return result
+        for gw_id, scenes in self._scenes.items():
+            device = data.devices.get(gw_id)
+            if device is None:
+                continue
+            for scene in scenes:
+                result.add((device.line, scene))
+        return result
 
     def _merge_sensors(self, sensors: list[dict[str, Any]]) -> None:
         """Type and update input instances from GET /sensors."""

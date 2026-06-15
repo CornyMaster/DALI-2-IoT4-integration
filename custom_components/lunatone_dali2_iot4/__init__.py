@@ -97,6 +97,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         _LOGGER.info("Starting gateway device scan")
         await client.async_start_scan()
         await coordinator.async_request_refresh()
+        # Pick up scenes configured since startup -> new scene switches.
+        await coordinator.async_refresh_all_scenes()
 
     async def handle_set_feedback_led(call: ServiceCall) -> None:
         await coordinator.async_set_feedback_led(
