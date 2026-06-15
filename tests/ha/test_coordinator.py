@@ -144,6 +144,23 @@ async def test_refresh_all_scenes_picks_up_new_scene(coordinator):
     assert (2, 5) in coordinator.configured_scenes()
 
 
+async def test_refresh_line_scenes_only_touches_that_line(coordinator):
+    """A broadcast/group store refresh re-reads only the affected line."""
+    from unittest.mock import AsyncMock
+
+    async def fake_scenes(gw_id):
+        base = {str(s): {"dimmable": None} for s in range(16)}
+        if gw_id in (1, 24):  # device 1 = line 0, device 24 = line 2
+            base["7"] = {"dimmable": 80.0}
+        return base
+
+    coordinator.client.async_get_device_scenes = AsyncMock(side_effect=fake_scenes)
+    await coordinator.async_refresh_line_scenes(0)
+    configured = coordinator.configured_scenes()
+    assert (0, 7) in configured  # line 0 was re-read
+    assert (2, 7) not in configured  # line 2 left untouched
+
+
 async def test_same_address_on_two_lines_are_distinct_inputs(hass, coordinator):
     coordinator.handle_ws_input_event(InputEvent(0, 5, 0, 1))
     coordinator.handle_ws_input_event(InputEvent(3, 5, 0, 1))

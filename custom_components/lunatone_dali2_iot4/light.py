@@ -454,6 +454,7 @@ class LunatoneGroupLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
         await self.coordinator.async_control_group(
             self._line, self._group, {"saveToScene": scene}
         )
+        await self.coordinator.async_refresh_line_scenes(self._line)
 
 
 class LunatoneBroadcastLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
@@ -583,6 +584,7 @@ class LunatoneBroadcastLight(CoordinatorEntity[LunatoneCoordinator], LightEntity
         await self.coordinator.async_control_broadcast(
             {"saveToScene": scene}, line=self._line
         )
+        await self.coordinator.async_refresh_line_scenes(self._line)
 
 
 class FeedbackLedLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):

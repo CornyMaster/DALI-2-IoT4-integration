@@ -182,7 +182,7 @@ class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
 
         Stored scenes are otherwise only read once at startup; this picks up
         scenes that were configured later (in DALI Cockpit or via store_scene)
-        so they appear as scene switches.
+        so they appear as scene entities.
         """
         data = self.data
         if not data:
@@ -191,6 +191,30 @@ class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
         for gw_id, device in data.devices.items():
             device.scenes = self._scenes.get(gw_id, {})
         self.async_set_updated_data(data)
+
+    async def async_refresh_line_scenes(self, line: int | None) -> None:
+        """Re-read stored scenes of one line's devices (all lines if None).
+
+        Used after a broadcast/group store_scene so the affected scene entity
+        and its member list update immediately, without a manual rescan.
+        """
+        data = self.data
+        if not data:
+            return
+        changed = False
+        for gw_id, device in data.devices.items():
+            if line is not None and device.line != line:
+                continue
+            try:
+                raw = await self.client.async_get_device_scenes(gw_id)
+            except LunatoneApiError as err:
+                _LOGGER.debug("Reading scenes of device %d failed: %s", gw_id, err)
+                continue
+            self._scenes[gw_id] = self._parse_scenes(raw)
+            device.scenes = self._scenes[gw_id]
+            changed = True
+        if changed:
+            self.async_set_updated_data(data)
 
     def configured_scenes(self) -> set[tuple[int, int]]:
         """(line, scene) pairs with a stored value on at least one device."""

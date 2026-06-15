@@ -142,3 +142,19 @@ async def test_broadcast_per_line_and_global(coordinator, config_entry, mock_gat
     mock_gateway.post(f"{BASE}/broadcast/control", payload={})
     await global_broadcast.async_turn_off()
     assert ("POST", URL(f"{BASE}/broadcast/control")) in mock_gateway.requests
+
+
+async def test_broadcast_store_scene_refreshes_its_line(
+    coordinator, config_entry, mock_gateway
+):
+    """Storing a scene via broadcast re-reads that line's scenes immediately."""
+    from unittest.mock import AsyncMock
+
+    mock_gateway.post(f"{BASE}/broadcast/control?_line=0", payload={})
+    coordinator.async_refresh_line_scenes = AsyncMock()
+    broadcast = LunatoneBroadcastLight(coordinator, config_entry, 0)
+    await broadcast.async_store_scene(5)
+
+    key = ("POST", URL(f"{BASE}/broadcast/control?_line=0"))
+    assert mock_gateway.requests[key][0].kwargs["json"] == {"saveToScene": 5}
+    coordinator.async_refresh_line_scenes.assert_awaited_once_with(0)
