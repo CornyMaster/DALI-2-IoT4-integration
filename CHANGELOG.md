@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-beta-7] - 2026-06-15
+
+### Added
+- **DALI scenes as native Home Assistant scenes.** Each configured DALI scene
+  becomes a `scene.*` entity on its own device "DALI Line X Scene Y".
+  Activating it (`scene.turn_on`, the Scenes UI, dashboards, automations)
+  recalls the scene on the whole line via a single broadcast. A scene appears
+  automatically once at least one lamp on the line has a stored value for it,
+  and each scene exposes its **member lamps and their stored levels** as
+  attributes (`members`, `member_count`).
+- Scenes are picked up dynamically: the "Scan for devices" button /
+  `rescan_devices` service re-reads stored scenes, and a broadcast/group
+  `store_scene` now refreshes that line's scenes immediately — so newly
+  created or edited scenes show up without extra steps.
+
+### Notes
+- DALI scenes are edited from Home Assistant via the existing `store_scene`
+  (gateway `saveToScene`) and `set_scene_level` services, not the HA scene
+  editor — integration-provided scenes are activate-only there (as with Hue
+  etc.). Only lamps of a line can belong to that line's scene.
+
 ## [0.2.0-beta-6] - 2026-06-15
 
 ### Fixed
@@ -282,7 +303,8 @@ Fork: project renamed to **DALI-2 IoT4 integration** with full multi-line suppor
 - Push button (iT1) state now correctly returns to "off" after short press events
 - Improved binary sensor state handling for momentary vs maintained buttons
 
-[Unreleased]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-6...HEAD
+[Unreleased]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-7...HEAD
+[0.2.0-beta-7]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-6...v0.2.0-beta-7
 [0.2.0-beta-6]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-5...v0.2.0-beta-6
 [0.2.0-beta-5]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-4...v0.2.0-beta-5
 [0.2.0-beta-4]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-3...v0.2.0-beta-4

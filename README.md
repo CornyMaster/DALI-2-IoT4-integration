@@ -37,6 +37,7 @@ IoT4 the original entities collided and all commands went to line 0 only.
 | Binary sensor (button/switch/occupancy) | line + address + instance | `…_line{L}_input_{A}_inst{I}` |
 | Sensor (light level) | line + address + instance | `…_line{L}_input_{A}_inst{I}` |
 | Light (feedback LED) | line + address + instance | `…_line{L}_input_{A}_led_{I}` |
+| Scene (DALI scene) | line + scene | `…_line{L}_scene{S}` |
 | Button (gateway scan) | gateway | `…_manual_scan` |
 | Button (refresh input names) | gateway | `…_refresh_input_names` |
 
@@ -63,6 +64,25 @@ re-read them on demand.
 > websocket). So to add a switch, press it once and it appears in HA. This also
 > requires the DALI-2 MC to be configured to send events (see the wiki / DALI
 > Cockpit setup), not just act as a direct application controller.
+
+## Scenes
+
+DALI scenes (0–15) are exposed as native Home Assistant **`scene.*` entities**,
+one per `(line, scene)`, each on its own device "DALI Line X Scene Y". A scene
+appears once at least one lamp on that line has a stored value for it; the scene
+exposes its **member lamps and their stored levels** as attributes.
+
+- **Activate:** `scene.turn_on`, the Scenes UI, a dashboard card or an
+  automation. Activation recalls the DALI scene on the whole line via a single
+  broadcast (fast, runs on the gateway).
+- **Create / edit:** set the line's lamps as you want, then store the current
+  state into the scene with the `store_scene` service on the **per-line
+  broadcast light** (gateway `saveToScene`); use `set_scene_level` for an
+  explicit per-device value. The scene entity updates immediately. Only lamps of
+  a line can belong to that line's scene.
+- These scenes are **not** editable in the HA scene editor (the pencil is
+  greyed out) — that editor only edits scenes defined in `scenes.yaml`/storage.
+  This is normal for integration-provided scenes (Hue, deCONZ, …).
 
 ## Configuration
 
