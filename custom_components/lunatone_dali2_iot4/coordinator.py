@@ -206,6 +206,29 @@ class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
                 result.add((device.line, scene))
         return result
 
+    def scene_members(self, line: int, scene: int) -> list[dict[str, Any]]:
+        """Lamps on `line` that store a value for `scene`, with that value.
+
+        Lets the UI show which lamps (and at which level) belong to a scene.
+        """
+        members: list[dict[str, Any]] = []
+        data = self.data
+        if not data:
+            return members
+        for gw_id, scenes in self._scenes.items():
+            device = data.devices.get(gw_id)
+            if device is None or device.line != line or scene not in scenes:
+                continue
+            value = scenes[scene]
+            members.append(
+                {
+                    "address": device.address,
+                    "name": device.name,
+                    "level": value.get("dimmable") if isinstance(value, dict) else None,
+                }
+            )
+        return sorted(members, key=lambda m: m["address"])
+
     def _merge_sensors(self, sensors: list[dict[str, Any]]) -> None:
         """Type and update input instances from GET /sensors."""
         for sensor in sensors:
