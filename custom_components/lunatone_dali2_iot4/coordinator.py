@@ -65,6 +65,11 @@ def input_device_identifier(entry_id: str, line: int, address: int) -> str:
     return f"{entry_id}_line{line}_input_{address}"
 
 
+def group_device_identifier(entry_id: str, line: int, group: int) -> str:
+    """Registry identifier for a single DALI group on one line."""
+    return f"{entry_id}_line{line}_group{group}"
+
+
 class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
     """Polls the REST inventory and merges websocket push events."""
 
@@ -516,6 +521,18 @@ class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
         await self._store.async_save(self._inputs)
         if self.data:
             self.async_set_updated_data(self.data)
+
+    async def async_refresh_input_names(self) -> None:
+        """Re-read the description (name) of every known input device.
+
+        Repairs names that were persisted from an earlier unreliable read
+        (garbled or truncated). Reads are serialized by the line lock in the
+        REST client; names the user renamed by hand are left untouched.
+        """
+        devices = list(self._inputs.values())
+        _LOGGER.info("Refreshing names of %d input device(s)", len(devices))
+        for device in devices:
+            await self._async_fetch_input_device_name(device)
 
     async def _async_reset_momentary_state(
         self, instance: InputInstance, event: InputEvent

@@ -109,6 +109,25 @@ async def test_input_device_keeps_default_name_without_description(hass, coordin
     assert coordinator.data.inputs[(3, 7)].name == "Line 3 Input 7"
 
 
+async def test_refresh_input_names_repairs_persisted_name(hass, coordinator):
+    """A previously corrupt/truncated name is re-read and overwritten."""
+    from unittest.mock import AsyncMock
+
+    coordinator.client.async_read_input_device_description = AsyncMock(
+        return_value="Schalter_Wohnzimme"  # earlier truncated read, now persisted
+    )
+    coordinator.handle_ws_input_event(InputEvent(2, 0, 1, 2))
+    await hass.async_block_till_done()
+    assert coordinator.data.inputs[(2, 0)].name == "Schalter_Wohnzimme"
+
+    coordinator.client.async_read_input_device_description = AsyncMock(
+        return_value="Schalter_Wohnzimmer_O"  # bus quiet now, reads correctly
+    )
+    await coordinator.async_refresh_input_names()
+    assert coordinator.data.inputs[(2, 0)].name == "Schalter_Wohnzimmer_O"
+    coordinator.client.async_read_input_device_description.assert_awaited_with(2, 0)
+
+
 async def test_same_address_on_two_lines_are_distinct_inputs(hass, coordinator):
     coordinator.handle_ws_input_event(InputEvent(0, 5, 0, 1))
     coordinator.handle_ws_input_event(InputEvent(3, 5, 0, 1))

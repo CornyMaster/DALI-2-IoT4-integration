@@ -1,5 +1,6 @@
 """Tests for the REST client (mocked HTTP; live gateway tests are marked)."""
 
+import asyncio
 import os
 
 import aiohttp
@@ -7,6 +8,7 @@ import pytest
 from aioresponses import aioresponses
 
 from custom_components.lunatone_dali2_iot4.api import (
+    IncompleteDescriptionError,
     LunatoneApiError,
     LunatoneReadOnlyError,
     LunatoneRestClient,
@@ -136,27 +138,90 @@ def test_parse_device_description_empty_bank():
     assert parse_device_description([24, None] + [255] * 31) is None
 
 
-def test_parse_device_description_handles_missing_answers():
-    assert parse_device_description([None, None, None, None]) is None
+def test_parse_device_description_missing_answer_raises():
+    """An all-NAK read is unreliable, not an empty description."""
+    with pytest.raises(IncompleteDescriptionError):
+        parse_device_description([None, None, None, None])
+
+
+def test_parse_device_description_nak_mid_string_raises():
+    """A None inside the text must not silently truncate the name."""
+    text = list("Schalter_Wohnzimmer_O".encode())
+    text[-1] = None  # final byte NAK'd, as seen on a busy bus
+    with pytest.raises(IncompleteDescriptionError):
+        parse_device_description([24, None, 2] + text + [0])
+
+
+def test_parse_device_description_invalid_utf8_raises():
+    """Misaligned/garbage bytes that are not valid UTF-8 are rejected."""
+    with pytest.raises(IncompleteDescriptionError):
+        parse_device_description([24, None, 2, 0xC3, 0x28, 0])  # bad 2-byte seq
+
+
+def _bank(text_bytes):
+    """Full 33-byte bank-2 image (3-byte header + text + 0x00 padding)."""
+    return [24, None, 2] + list(text_bytes) + [0] * (33 - 3 - len(text_bytes))
 
 
 async def test_read_input_device_description_batches(client):
-    """3 batched requests: setup+14 reads, 16 reads, 3 reads (33 bytes)."""
-    text = list("Schalter_Küche_L".encode())
-    bank = [24, None, 2] + text + [255] * (33 - 3 - len(text))
+    """3 re-seeking requests (14 + 14 + 5 reads) reassemble the 33-byte bank."""
+    bank = _bank("Schalter_Küche_L".encode())
     with aioresponses() as mock:
-        mock.post(f"{BASE}/dali/sendDali24/0", payload=[None, None] + bank[:14])
-        mock.post(f"{BASE}/dali/sendDali24/0", payload=bank[14:30])
-        mock.post(f"{BASE}/dali/sendDali24/0", payload=bank[30:33])
+        mock.post(f"{BASE}/dali/sendDali24/0", payload=[None, None] + bank[0:14])
+        mock.post(f"{BASE}/dali/sendDali24/0", payload=[None, None] + bank[14:28])
+        mock.post(f"{BASE}/dali/sendDali24/0", payload=[None, None] + bank[28:33])
         result = await client.async_read_input_device_description(0, 0)
     assert result == "Schalter_Küche_L"
-    # first request: DTR1=bank2, DTR0=0, then READ MEMORY LOCATION frames
     key = list(mock.requests.keys())[0]
-    first = mock.requests[key][0].kwargs["json"]
-    assert first[0] == {"address": 0xC1, "instance": 0x31, "command": 2}
-    assert first[1] == {"address": 0xC1, "instance": 0x30, "command": 0}
-    assert first[2] == {"address": 1, "instance": 0xFE, "command": 0x3C}
+    reqs = mock.requests[key]
+    first = reqs[0].kwargs["json"]
+    assert first[0] == {"address": 0xC1, "instance": 0x31, "command": 2}  # DTR1=bank2
+    assert first[1] == {"address": 0xC1, "instance": 0x30, "command": 0}  # DTR0=0
+    assert first[2] == {"address": 1, "instance": 0xFE, "command": 0x3C}  # READ
     assert len(first) == 16  # gateway limit per request
+    # each follow-up request RE-SEEKS DTR0 instead of relying on auto-increment
+    assert reqs[1].kwargs["json"][1] == {"address": 0xC1, "instance": 0x30, "command": 14}
+    assert reqs[2].kwargs["json"][1] == {"address": 0xC1, "instance": 0x30, "command": 28}
+
+
+async def test_read_input_device_description_retries_on_nak(client):
+    """A first read with a NAK'd byte is retried, not persisted truncated."""
+    bad = _bank("Schalter_Küche_L".encode())
+    bad[8] = None  # NAK in the text region -> parse raises -> retry
+    good = _bank("Schalter_Küche_L".encode())
+    with aioresponses() as mock:
+        for chunk in ((0, 14), (14, 28), (28, 33)):
+            mock.post(f"{BASE}/dali/sendDali24/0", payload=[None, None] + bad[chunk[0]:chunk[1]])
+        for chunk in ((0, 14), (14, 28), (28, 33)):
+            mock.post(f"{BASE}/dali/sendDali24/0", payload=[None, None] + good[chunk[0]:chunk[1]])
+        result = await client.async_read_input_device_description(0, 0)
+    assert result == "Schalter_Küche_L"
+
+
+async def test_dali24_traffic_serialized_per_line(client):
+    """Same-line raw traffic is serialized; different lines run concurrently."""
+    active = {"n": 0, "max": 0}
+
+    async def fake_request(method, path, json=None, params=None):
+        active["n"] += 1
+        active["max"] = max(active["max"], active["n"])
+        await asyncio.sleep(0.01)
+        active["n"] -= 1
+        return [None]
+
+    client._request = fake_request
+    await asyncio.gather(
+        client.async_send_dali24_frames(0, [{"x": 1}]),
+        client.async_send_dali24_frames(0, [{"x": 2}]),
+    )
+    assert active["max"] == 1  # same line never overlaps
+
+    active.update(n=0, max=0)
+    await asyncio.gather(
+        client.async_send_dali24_frames(0, [{"x": 1}]),
+        client.async_send_dali24_frames(1, [{"x": 2}]),
+    )
+    assert active["max"] == 2  # different lines are independent
 
 
 # ---------------------------------------------------------------------------

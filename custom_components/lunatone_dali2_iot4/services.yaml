@@ -7,6 +7,14 @@ rescan_devices:
     appear automatically after the scan finishes.
   fields: {}
 
+refresh_input_names:
+  name: Refresh input device names
+  description: >-
+    Re-read the names (Cockpit "Device Description") of all DALI-2 input
+    devices from the bus. Use this to repair switch names that show garbled or
+    truncated text. Names you renamed by hand are left unchanged.
+  fields: {}
+
 step_up:
   name: Step brightness up
   description: Increase brightness by one step.

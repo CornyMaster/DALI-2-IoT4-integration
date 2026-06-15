@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-beta-5] - 2026-06-15
+
+### Changed
+- **Each DALI group is now its own Home Assistant device.** Previously all
+  groups of a line were bundled under a single "DALI Line X Groups" device;
+  now every group is a separate device ("DALI Line X Group Y") that can be
+  named and assigned to an area individually. Entity unique_ids are unchanged
+  (`…_line{L}_group{G}`), so history and automations are preserved. The old
+  bundling device is left empty after the upgrade and can be deleted from the
+  Home Assistant UI.
+
+### Fixed
+- **Garbled and truncated input-device names** (e.g. "Schalter_Wohnzimme"
+  instead of "Schalter_Wohnzimmer_O", or random characters): reading the
+  on-device description (memory bank 2) was not robust against the realities
+  of the DALI bus.
+  - Raw 24-bit traffic is now **serialized per line** with a lock: setting the
+    transfer registers (DTR0/DTR1) uses the broadcast address, so concurrent
+    reads on the same line used to reset each other's read pointer mid-read.
+  - A missing per-byte answer (a DALI NAK, returned as `null`) is no longer
+    treated as the end of the string; the read is retried instead of being
+    silently truncated, and bytes that are not valid UTF-8 are rejected.
+  - Each request re-seeks DTR0 instead of relying on the device's
+    auto-increment surviving between separate HTTP requests.
+
+### Added
+- New service `lunatone_dali2_iot4.refresh_input_names` re-reads the names of
+  all DALI-2 input devices from the bus. Use it to repair names that were
+  stored garbled or truncated by an earlier release. Names you renamed by
+  hand in Home Assistant are left untouched.
+
 ## [0.2.0-beta-4] - 2026-06-12
 
 ### Added
@@ -227,7 +258,8 @@ Fork: project renamed to **DALI-2 IoT4 integration** with full multi-line suppor
 - Push button (iT1) state now correctly returns to "off" after short press events
 - Improved binary sensor state handling for momentary vs maintained buttons
 
-[Unreleased]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-4...HEAD
+[Unreleased]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-5...HEAD
+[0.2.0-beta-5]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-4...v0.2.0-beta-5
 [0.2.0-beta-4]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-3...v0.2.0-beta-4
 [0.2.0-beta-3]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-2...v0.2.0-beta-3
 [0.2.0-beta-2]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-1...v0.2.0-beta-2

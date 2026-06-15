@@ -60,6 +60,13 @@ async def test_group_light_per_line(coordinator, config_entry, mock_gateway):
     assert group_l0.unique_id == f"{config_entry.entry_id}_line0_group0"
     assert group_l2.unique_id == f"{config_entry.entry_id}_line2_group0"
     assert group_l0.name == "Line 0 Group 0"
+    # each group is its own HA device (not bundled under one "Line X Groups")
+    group_l0b = LunatoneGroupLight(coordinator, config_entry, 0, 1)
+    ids_g0 = group_l0.device_info["identifiers"]
+    ids_g1 = group_l0b.device_info["identifiers"]
+    assert ids_g0 == {("lunatone_dali2_iot4", f"{config_entry.entry_id}_line0_group0")}
+    assert ids_g1 == {("lunatone_dali2_iot4", f"{config_entry.entry_id}_line0_group1")}
+    assert ids_g0 != ids_g1
     # member sets differ between lines (addresses 20-25 on line 0; all 14 on line 2)
     assert group_l0.extra_state_attributes["device_count"] == 6
     assert group_l2.extra_state_attributes["device_count"] == 14

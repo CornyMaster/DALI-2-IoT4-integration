@@ -35,6 +35,7 @@ from .const import (
 from .coordinator import (
     LunatoneCoordinator,
     gear_device_identifier,
+    group_device_identifier,
     input_device_identifier,
     scene_control,
 )
@@ -337,9 +338,11 @@ class LunatoneGroupLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
         self._attr_name = f"Line {line} Group {group}"
         self._update_capabilities()
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"{entry.entry_id}_line{line}_groups")},
-            name=f"DALI Line {line} Groups",
-            model="DALI Group Controller",
+            identifiers={
+                (DOMAIN, group_device_identifier(entry.entry_id, line, group))
+            },
+            name=f"DALI Line {line} Group {group}",
+            model="DALI Group",
             manufacturer="Lunatone",
             via_device=(DOMAIN, entry.entry_id),
         )

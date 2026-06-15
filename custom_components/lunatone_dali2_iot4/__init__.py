@@ -29,6 +29,7 @@ _LOGGER = logging.getLogger(__name__)
 
 SERVICE_RESCAN = "rescan_devices"
 SERVICE_SET_FEEDBACK_LED = "set_feedback_led"
+SERVICE_REFRESH_INPUT_NAMES = "refresh_input_names"
 
 SET_FEEDBACK_LED_SCHEMA = vol.Schema(
     {
@@ -105,6 +106,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             call.data["state"],
         )
 
+    async def handle_refresh_input_names(call: ServiceCall) -> None:
+        """Re-read input-device names from the bus (repairs corrupt names)."""
+        await coordinator.async_refresh_input_names()
+
     if not hass.services.has_service(DOMAIN, SERVICE_RESCAN):
         hass.services.async_register(DOMAIN, SERVICE_RESCAN, handle_rescan_devices)
     if not hass.services.has_service(DOMAIN, SERVICE_SET_FEEDBACK_LED):
@@ -113,6 +118,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             SERVICE_SET_FEEDBACK_LED,
             handle_set_feedback_led,
             schema=SET_FEEDBACK_LED_SCHEMA,
+        )
+    if not hass.services.has_service(DOMAIN, SERVICE_REFRESH_INPUT_NAMES):
+        hass.services.async_register(
+            DOMAIN, SERVICE_REFRESH_INPUT_NAMES, handle_refresh_input_names
         )
 
     _LOGGER.info(
@@ -144,7 +153,11 @@ async def async_remove_config_entry_device(
     Needed to clean up stale devices from the registry (e.g. phantom input
     devices created by the pre-beta-2 event decoding bug).
     """
-    from .coordinator import gear_device_identifier, input_device_identifier
+    from .coordinator import (
+        gear_device_identifier,
+        group_device_identifier,
+        input_device_identifier,
+    )
 
     coordinator = hass.data[DOMAIN][entry.entry_id][DATA_COORDINATOR]
     data = coordinator.data
@@ -156,8 +169,9 @@ async def async_remove_config_entry_device(
             )
         for line, address in data.inputs:
             current.add(input_device_identifier(entry.entry_id, line, address))
-        for line in data.lines_with_devices():
-            current.add(f"{entry.entry_id}_line{line}_groups")
+        for line, group in data.groups_with_members():
+            if group <= 15:
+                current.add(group_device_identifier(entry.entry_id, line, group))
     identifiers = {
         identifier[1]
         for identifier in device_entry.identifiers

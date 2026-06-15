@@ -42,10 +42,17 @@ IoT4 the original entities collided and all commands went to line 0 only.
 unique_ids are based on the stable bus identity (line + address), so they
 survive gateway re-scans that renumber internal device ids.
 
+Each DALI group is its own Home Assistant device ("DALI Line X Group Y"), so
+groups can be named and assigned to an area individually. The descriptive
+group names from DALI Cockpit live only in the local Cockpit project and are
+not exposed by the gateway, so rename group devices in HA as needed.
+
 Device triggers for buttons/sensors are available per instance, and the
 `lunatone_dali2_iot4_event` payload includes the `line`. Input devices are
 named from the description stored in the device (DALI Cockpit "Device
-Description"), read automatically on first discovery.
+Description"), read automatically on first discovery. The read is serialized
+per line and retried on bus NAKs, so names are not truncated or garbled; use
+the `refresh_input_names` service to re-read them on demand.
 
 ## Configuration
 
@@ -62,6 +69,8 @@ tracking of DALI-2 input devices (buttons/sensors).
 ## Services
 
 - `lunatone_dali2_iot4.rescan_devices` — start the gateway's device scan
+- `lunatone_dali2_iot4.refresh_input_names` — re-read all input-device names
+  from the bus (repairs garbled/truncated names; manual renames are kept)
 - `lunatone_dali2_iot4.step_up` / `step_down` / `recall_max` — entity services on lights
 - `lunatone_dali2_iot4.recall_scene` / `store_scene` — recall (optionally with
   `fade_time`) or store a DALI scene (0-15) on a device, group or broadcast
