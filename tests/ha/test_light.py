@@ -94,6 +94,30 @@ async def test_device_brightness_conversion(coordinator, config_entry, mock_gate
     assert light.brightness == round(50 / 100 * 255)
 
 
+async def test_brightness_remaps_to_physical_minimum(
+    coordinator, config_entry, mock_gateway
+):
+    """With a floor of level 85, HA 255->100% and HA 1->the floor level."""
+    device = coordinator.data.device_by_line_addr(2, 20)  # gw id 24
+    device.physical_min_level = 85
+    mock_gateway.post(f"{BASE}/device/24/control", payload={}, repeat=True)
+    light = LunatoneDeviceLight(coordinator, config_entry, 2, 20)
+
+    await light.async_turn_on(brightness=255)
+    body = mock_gateway.requests[("POST", URL(f"{BASE}/device/24/control"))][-1]
+    assert body.kwargs["json"]["dimmable"] == pytest.approx(100.0)
+
+    await light.async_turn_on(brightness=1)
+    body = mock_gateway.requests[("POST", URL(f"{BASE}/device/24/control"))][-1]
+    assert body.kwargs["json"]["dimmable"] == pytest.approx(85 / 254 * 100)
+
+    # read path: a level at the floor shows as HA brightness 1, max as 255
+    device.brightness_pct = 85 / 254 * 100
+    assert light.brightness == 1
+    device.brightness_pct = 100.0
+    assert light.brightness == 255
+
+
 async def test_group_light_per_line(coordinator, config_entry, mock_gateway):
     group_l0 = LunatoneGroupLight(coordinator, config_entry, 0, 0)
     group_l2 = LunatoneGroupLight(coordinator, config_entry, 2, 0)

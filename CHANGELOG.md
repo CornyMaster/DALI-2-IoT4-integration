@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-beta-9] - 2026-06-17
+
+### Added
+- **Brightness slider now spans each lamp's usable range.** Many LED drivers
+  cannot dim below a hardware *physical minimum* (e.g. the EVN spots floor at
+  ~33%). The integration now reads each device's physical minimum from the
+  driver (DALI `QUERY PHYSICAL MINIMUM`, a read-only query) and maps the Home
+  Assistant brightness slider onto the usable level range: the lamp's physical
+  minimum becomes HA "1%", full output stays 100%, everything in between is
+  scaled accordingly. So the bottom of the slider matches what the lamp can
+  actually do, and you can't set a value the driver would just clamp away.
+  Drivers without a meaningful floor (physical minimum = 1, e.g. the Lunatone
+  power supply) are unchanged. Groups use the most restrictive member floor.
+  Detection runs in the background after startup and after a device scan.
+
 ## [0.2.0-beta-8] - 2026-06-17
 
 ### Added
@@ -320,7 +335,8 @@ Fork: project renamed to **DALI-2 IoT4 integration** with full multi-line suppor
 - Push button (iT1) state now correctly returns to "off" after short press events
 - Improved binary sensor state handling for momentary vs maintained buttons
 
-[Unreleased]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-8...HEAD
+[Unreleased]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-9...HEAD
+[0.2.0-beta-9]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-8...v0.2.0-beta-9
 [0.2.0-beta-8]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-7...v0.2.0-beta-8
 [0.2.0-beta-7]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-6...v0.2.0-beta-7
 [0.2.0-beta-6]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-5...v0.2.0-beta-6

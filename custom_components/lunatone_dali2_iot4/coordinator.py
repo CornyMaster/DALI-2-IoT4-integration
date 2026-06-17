@@ -123,6 +123,10 @@ class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
         self._led_states: dict[tuple[int, int, int], bool] = {}
         self._scenes: dict[int, dict[int, Any]] = {}
         self._scenes_loaded = False
+        # Cached per-device physical minimum DALI level (QUERY PHYSICAL MINIMUM),
+        # keyed by (line, address). Static hardware property; queried once and
+        # re-applied to the rebuilt device objects on every poll.
+        self._phys_min: dict[tuple[int, int], int] = {}
         # Per-target "switch on without brightness" behavior; populated by the
         # select/number entities (restored across restarts) and read by the
         # light entities. Defaults to "go to last active level".
@@ -156,7 +160,40 @@ class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
             self._scenes_loaded = True
         for gw_id, device in data.devices.items():
             device.scenes = self._scenes.get(gw_id, {})
+            device.physical_min_level = self._phys_min.get(
+                (device.line, device.address), 1
+            )
         return data
+
+    async def async_refresh_physical_minimums(self) -> None:
+        """Query each device's physical minimum dim level once and cache it.
+
+        Read-only DALI queries (no light changes). Lets the light entities map
+        the HA slider onto the lamp's usable range instead of its unreachable
+        lower part. Runs in the background after setup and after a rescan.
+        """
+        data = self.data
+        if not data:
+            return
+        changed = False
+        for device in list(data.devices.values()):
+            key = (device.line, device.address)
+            if key in self._phys_min:
+                device.physical_min_level = self._phys_min[key]
+                continue
+            try:
+                level = await self.client.async_query_physical_minimum(
+                    device.line, device.address
+                )
+            except LunatoneApiError as err:
+                _LOGGER.debug("Physical-min query failed for %s: %s", key, err)
+                continue
+            if level is not None and 1 <= level <= 254:
+                self._phys_min[key] = level
+                device.physical_min_level = level
+                changed = True
+        if changed:
+            self.async_set_updated_data(data)
 
     async def _async_fetch_all_scenes(self, data: LunatoneData) -> None:
         """Load the stored scene values of every device (once at startup)."""

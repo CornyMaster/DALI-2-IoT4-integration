@@ -47,6 +47,9 @@ class LunatoneDevice:
     status_raw: dict[str, Any]
     # stored scene values, attached by the coordinator: {scene: {"dimmable": ...}}
     scenes: dict[int, Any] = field(default_factory=dict)
+    # driver's lowest reachable DALI arc level (QUERY PHYSICAL MINIMUM, 1..254),
+    # attached by the coordinator; 1 = no floor / not yet known
+    physical_min_level: int = 1
 
     @classmethod
     def from_api(cls, data: dict[str, Any]) -> LunatoneDevice:

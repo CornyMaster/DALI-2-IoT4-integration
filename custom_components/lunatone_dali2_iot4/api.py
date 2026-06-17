@@ -36,6 +36,9 @@ DESCRIPTION_OFFSET = 3
 DESCRIPTION_MAX_LENGTH = 30
 DESCRIPTION_READ_RETRIES = 3  # whole-read retries on an unreliable (NAK'd) read
 
+# 16-bit DALI queries (IEC 62386-102, control gear)
+CMD_QUERY_PHYSICAL_MINIMUM = 0x9A  # 154 -> driver's lowest possible arc level
+
 
 class IncompleteDescriptionError(Exception):
     """A memory-bank-2 read was unreliable and must be retried.
@@ -208,6 +211,40 @@ class LunatoneRestClient:
     ) -> list[Any]:
         """Unlocked variant; caller must already hold the line lock."""
         return await self._request("POST", f"/dali/sendDali24/{line}", json=frames)
+
+    async def async_send_dali16_frames(
+        self, line: int, frames: list[dict[str, int]]
+    ) -> list[Any]:
+        """Send a batch of raw 16-bit DALI frames; returns one answer per frame."""
+        async with self._line_lock(line):
+            return await self._request(
+                "POST", f"/dali/sendDali16/{line}", json=frames
+            )
+
+    async def async_query_physical_minimum(
+        self, line: int, address: int
+    ) -> int | None:
+        """QUERY PHYSICAL MINIMUM for a control-gear device (read-only query).
+
+        Returns the lowest DALI arc level (1..254) the driver can reach, or
+        None if the device does not answer. Pure query — does not change the
+        light level.
+        """
+        frame = {"address": (address << 1) | 1, "command": CMD_QUERY_PHYSICAL_MINIMUM}
+        try:
+            answers = await self.async_send_dali16_frames(line, [frame])
+        except LunatoneApiError as err:
+            _LOGGER.debug(
+                "QUERY PHYSICAL MINIMUM failed on line %d address %d: %s",
+                line,
+                address,
+                err,
+            )
+            return None
+        for value in answers:
+            if isinstance(value, int) and 0 <= value <= 254:
+                return value
+        return None
 
     async def async_read_input_device_description(
         self, line: int, address: int

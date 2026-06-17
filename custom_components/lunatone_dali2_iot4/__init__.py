@@ -92,6 +92,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_update_options))
 
+    # Read each driver's physical minimum dim level in the background so the
+    # light slider can span the lamp's usable range (read-only DALI queries).
+    entry.async_create_background_task(
+        hass,
+        coordinator.async_refresh_physical_minimums(),
+        "lunatone_physical_minimums",
+    )
+
     async def handle_rescan_devices(call: ServiceCall) -> None:
         """Trigger the gateway's own scan (never re-addresses the bus)."""
         _LOGGER.info("Starting gateway device scan")
@@ -99,6 +107,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await coordinator.async_request_refresh()
         # Pick up scenes configured since startup -> new scene switches.
         await coordinator.async_refresh_all_scenes()
+        # Newly discovered devices need their physical minimum read too.
+        await coordinator.async_refresh_physical_minimums()
 
     async def handle_set_feedback_led(call: ServiceCall) -> None:
         await coordinator.async_set_feedback_led(

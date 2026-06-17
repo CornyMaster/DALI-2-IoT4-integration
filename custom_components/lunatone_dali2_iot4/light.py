@@ -39,6 +39,10 @@ from .coordinator import (
     input_device_identifier,
     scene_control,
 )
+from .brightness import (
+    dimmable_pct_to_ha_brightness,
+    ha_brightness_to_dimmable_pct,
+)
 from .models import LunatoneDevice
 from .turn_on import (
     build_turn_on_control,
@@ -231,9 +235,11 @@ class LunatoneDeviceLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
     @property
     def brightness(self) -> int | None:
         device = self._device
-        if device is None or device.brightness_pct is None:
+        if device is None:
             return None
-        return round(device.brightness_pct / 100 * 255)
+        return dimmable_pct_to_ha_brightness(
+            device.brightness_pct, device.physical_min_level
+        )
 
     @property
     def color_temp_kelvin(self) -> int | None:
@@ -281,7 +287,8 @@ class LunatoneDeviceLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
 
         if brightness is not None and device.supports_dimming:
             await self.coordinator.async_set_brightness(
-                device.gw_id, round(brightness / 255 * 100)
+                device.gw_id,
+                ha_brightness_to_dimmable_pct(brightness, device.physical_min_level),
             )
         elif color_temp_kelvin is None:
             control = build_turn_on_control(
@@ -391,6 +398,12 @@ class LunatoneGroupLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
             return None
         return any(device.is_on for device in members)
 
+    def _phys_min(self) -> int:
+        """Group floor = the most restrictive member physical minimum."""
+        return max(
+            (device.physical_min_level for device in self._members()), default=1
+        )
+
     @property
     def brightness(self) -> int | None:
         levels = [
@@ -400,7 +413,7 @@ class LunatoneGroupLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
         ]
         if not levels:
             return None
-        return round(max(levels) / 100 * 255)
+        return dimmable_pct_to_ha_brightness(max(levels), self._phys_min())
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -431,7 +444,9 @@ class LunatoneGroupLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
 
         if brightness is not None:
             await self.coordinator.async_control_group(
-                self._line, self._group, {"dimmable": round(brightness / 255 * 100)}
+                self._line,
+                self._group,
+                {"dimmable": ha_brightness_to_dimmable_pct(brightness, self._phys_min())},
             )
         elif color_temp_kelvin is None:
             control = build_turn_on_control(
@@ -536,6 +551,11 @@ class LunatoneBroadcastLight(CoordinatorEntity[LunatoneCoordinator], LightEntity
             return None
         return any(device.is_on for device in members)
 
+    def _phys_min(self) -> int:
+        return max(
+            (device.physical_min_level for device in self._members()), default=1
+        )
+
     @property
     def brightness(self) -> int | None:
         levels = [
@@ -545,7 +565,7 @@ class LunatoneBroadcastLight(CoordinatorEntity[LunatoneCoordinator], LightEntity
         ]
         if not levels:
             return None
-        return round(max(levels) / 100 * 255)
+        return dimmable_pct_to_ha_brightness(max(levels), self._phys_min())
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -571,7 +591,8 @@ class LunatoneBroadcastLight(CoordinatorEntity[LunatoneCoordinator], LightEntity
 
         if brightness is not None:
             await self.coordinator.async_control_broadcast(
-                {"dimmable": round(brightness / 255 * 100)}, line=self._line
+                {"dimmable": ha_brightness_to_dimmable_pct(brightness, self._phys_min())},
+                line=self._line,
             )
         elif color_temp_kelvin is None:
             control = build_turn_on_control(
