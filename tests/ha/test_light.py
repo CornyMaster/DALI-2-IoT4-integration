@@ -11,6 +11,12 @@ from custom_components.lunatone_dali2_iot4.light import (  # noqa: E402
     LunatoneDeviceLight,
     LunatoneGroupLight,
 )
+from custom_components.lunatone_dali2_iot4.turn_on import (  # noqa: E402
+    OPTION_FIXED,
+    OPTION_MAXIMUM,
+    turn_on_key_device,
+    turn_on_key_group,
+)
 
 from .conftest import BASE  # noqa: E402
 
@@ -38,11 +44,45 @@ async def test_all_51_devices_have_unique_entity_ids(coordinator, config_entry):
 
 
 async def test_device_turn_on_posts_to_gateway_id(coordinator, config_entry, mock_gateway):
-    mock_gateway.post(f"{BASE}/device/24/control", payload={})
+    mock_gateway.post(f"{BASE}/device/24/control", payload={}, repeat=True)
+    light = LunatoneDeviceLight(coordinator, config_entry, 2, 20)
+    # default turn-on behavior is "go to last active level"
+    await light.async_turn_on()
+    request = mock_gateway.requests[("POST", URL(f"{BASE}/device/24/control"))][0]
+    assert request.kwargs["json"] == {"gotoLastActive": True}
+
+
+async def test_device_turn_on_maximum_mode(coordinator, config_entry, mock_gateway):
+    coordinator.turn_on_store.set_mode(turn_on_key_device(2, 20), OPTION_MAXIMUM)
+    mock_gateway.post(f"{BASE}/device/24/control", payload={}, repeat=True)
     light = LunatoneDeviceLight(coordinator, config_entry, 2, 20)
     await light.async_turn_on()
     request = mock_gateway.requests[("POST", URL(f"{BASE}/device/24/control"))][0]
-    assert request.kwargs["json"] == {"switchable": True}
+    assert request.kwargs["json"] == {"dimmable": 100}
+
+
+async def test_device_turn_on_fixed_with_fade(coordinator, config_entry, mock_gateway):
+    key = turn_on_key_device(2, 20)
+    coordinator.turn_on_store.set_mode(key, OPTION_FIXED)
+    coordinator.turn_on_store.set_fixed(key, 25.0)
+    coordinator.turn_on_store.set_fixed_fade(key, 3.0)
+    mock_gateway.post(f"{BASE}/device/24/control", payload={}, repeat=True)
+    light = LunatoneDeviceLight(coordinator, config_entry, 2, 20)
+    await light.async_turn_on()
+    request = mock_gateway.requests[("POST", URL(f"{BASE}/device/24/control"))][0]
+    assert request.kwargs["json"] == {
+        "dimmableWithFade": {"fadeTime": 3.0, "dimValue": 25.0}
+    }
+
+
+async def test_group_turn_on_fixed_mode(coordinator, config_entry, mock_gateway):
+    coordinator.turn_on_store.set_mode(turn_on_key_group(2, 0), OPTION_FIXED)
+    coordinator.turn_on_store.set_fixed(turn_on_key_group(2, 0), 60.0)
+    mock_gateway.post(f"{BASE}/group/0/control?_line=2", payload={}, repeat=True)
+    group = LunatoneGroupLight(coordinator, config_entry, 2, 0)
+    await group.async_turn_on()
+    key = ("POST", URL(f"{BASE}/group/0/control?_line=2"))
+    assert mock_gateway.requests[key][0].kwargs["json"] == {"dimmable": 60.0}
 
 
 async def test_device_brightness_conversion(coordinator, config_entry, mock_gateway):
@@ -71,11 +111,12 @@ async def test_group_light_per_line(coordinator, config_entry, mock_gateway):
     assert group_l0.extra_state_attributes["device_count"] == 6
     assert group_l2.extra_state_attributes["device_count"] == 14
 
-    mock_gateway.post(f"{BASE}/group/0/control?_line=2", payload={})
+    mock_gateway.post(f"{BASE}/group/0/control?_line=2", payload={}, repeat=True)
     await group_l2.async_turn_on()
     key = ("POST", URL(f"{BASE}/group/0/control?_line=2"))
     assert key in mock_gateway.requests
-    assert mock_gateway.requests[key][0].kwargs["json"] == {"switchable": True}
+    # default turn-on behavior is "go to last active level"
+    assert mock_gateway.requests[key][0].kwargs["json"] == {"gotoLastActive": True}
 
 
 async def test_group_scene_recall_targets_single_line(

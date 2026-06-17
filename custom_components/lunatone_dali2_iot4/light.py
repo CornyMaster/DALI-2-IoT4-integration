@@ -40,6 +40,12 @@ from .coordinator import (
     scene_control,
 )
 from .models import LunatoneDevice
+from .turn_on import (
+    build_turn_on_control,
+    turn_on_key_broadcast,
+    turn_on_key_device,
+    turn_on_key_group,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -278,7 +284,12 @@ class LunatoneDeviceLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
                 device.gw_id, round(brightness / 255 * 100)
             )
         elif color_temp_kelvin is None:
-            await self.coordinator.async_turn_on(device.gw_id)
+            control = build_turn_on_control(
+                self.coordinator.turn_on_store.get(
+                    turn_on_key_device(self._line, self._address)
+                )
+            )
+            await self.coordinator.async_apply_turn_on(device.gw_id, control)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         device = self._device
@@ -423,9 +434,16 @@ class LunatoneGroupLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
                 self._line, self._group, {"dimmable": round(brightness / 255 * 100)}
             )
         elif color_temp_kelvin is None:
-            await self.coordinator.async_control_group(
-                self._line, self._group, {"switchable": True}
+            control = build_turn_on_control(
+                self.coordinator.turn_on_store.get(
+                    turn_on_key_group(self._line, self._group)
+                )
             )
+            await self.coordinator.async_control_group(
+                self._line, self._group, control
+            )
+            if "gotoLastActive" in control:
+                await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         await self.coordinator.async_control_group(
@@ -556,9 +574,14 @@ class LunatoneBroadcastLight(CoordinatorEntity[LunatoneCoordinator], LightEntity
                 {"dimmable": round(brightness / 255 * 100)}, line=self._line
             )
         elif color_temp_kelvin is None:
-            await self.coordinator.async_control_broadcast(
-                {"switchable": True}, line=self._line
+            control = build_turn_on_control(
+                self.coordinator.turn_on_store.get(
+                    turn_on_key_broadcast(self._line)
+                )
             )
+            await self.coordinator.async_control_broadcast(control, line=self._line)
+            if "gotoLastActive" in control:
+                await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         await self.coordinator.async_control_broadcast(

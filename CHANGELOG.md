@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Per-lamp/group "turn-on behavior".** When a light, group or broadcast line
+  is switched on in HA *without* an explicit brightness, it now goes to its
+  **last active level** by default (DALI `gotoLastActive` / "GOTO LAST ACTIVE
+  LEVEL") instead of jumping to maximum. Each dimmable lamp, group and
+  broadcast line gains three config entities under its device:
+  - a `select` **"Turn-on behavior"** — *Last active level* / *Maximum* /
+    *Fixed value*,
+  - a `number` **"Turn-on brightness"** (%) used for *Fixed value*, and
+  - a `number` **"Turn-on fade time"** (s) applied to the fixed value (0 = none,
+    via DALI `dimmableWithFade`).
+  The choice is remembered per target and restored across restarts. Existing
+  lamps/groups/broadcasts pick these up automatically on the next start — no
+  re-import needed.
+
 ## [0.2.0-beta-7] - 2026-06-15
 
 ### Added

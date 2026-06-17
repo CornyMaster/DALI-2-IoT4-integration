@@ -38,6 +38,7 @@ from .const import (
 )
 from .models import GatewayInfo, InputDevice, InputInstance, LunatoneData, LunatoneDevice
 from .storage import InputDeviceStore
+from .turn_on import TurnOnPreferenceStore
 from .websocket import InputEvent, decode_button_event, decode_occupancy_event
 
 _LOGGER = logging.getLogger(__name__)
@@ -53,6 +54,22 @@ def scene_control(scene: int, fade_time: float | None = None) -> dict[str, Any]:
     if fade_time is not None:
         return {"sceneWithFade": {"scene": scene, "fadeTime": fade_time}}
     return {"scene": scene}
+
+
+def _turn_on_optimistic_updates(control: dict[str, Any]) -> dict[str, Any]:
+    """Derive optimistic device-attribute updates from a turn-on control."""
+    updates: dict[str, Any] = {}
+    if control.get("gotoLastActive") or control.get("switchable"):
+        updates["is_on"] = True
+    if "dimmable" in control:
+        updates["is_on"] = control["dimmable"] > 0
+        updates["brightness_pct"] = float(control["dimmable"])
+    if "dimmableWithFade" in control:
+        dim_value = control["dimmableWithFade"].get("dimValue")
+        if dim_value is not None:
+            updates["is_on"] = dim_value > 0
+            updates["brightness_pct"] = float(dim_value)
+    return updates
 
 
 def gear_device_identifier(entry_id: str, line: int, address: int) -> str:
@@ -106,6 +123,10 @@ class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
         self._led_states: dict[tuple[int, int, int], bool] = {}
         self._scenes: dict[int, dict[int, Any]] = {}
         self._scenes_loaded = False
+        # Per-target "switch on without brightness" behavior; populated by the
+        # select/number entities (restored across restarts) and read by the
+        # light entities. Defaults to "go to last active level".
+        self.turn_on_store = TurnOnPreferenceStore()
 
     # ------------------------------------------------------------------
     # Polling
@@ -304,6 +325,23 @@ class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
             gw_id, {"switchable": True}, is_on=True
         )
 
+    async def async_apply_turn_on(
+        self, gw_id: int, control: dict[str, Any]
+    ) -> bool:
+        """Switch a device on with a caller-built control (turn-on behavior).
+
+        Used by the light entity to honor the per-lamp turn-on preference
+        (last active level / maximum / fixed value). For "last active level"
+        the resulting brightness is unknown up front, so a refresh is requested
+        to pull the real level from the gateway.
+        """
+        result = await self._async_control_device(
+            gw_id, control, **_turn_on_optimistic_updates(control)
+        )
+        if "gotoLastActive" in control:
+            await self.async_request_refresh()
+        return result
+
     async def async_turn_off(self, gw_id: int) -> bool:
         return await self._async_control_device(
             gw_id, {"switchable": False}, is_on=False, brightness_pct=0.0
@@ -426,6 +464,14 @@ class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
             if "dimmable" in control:
                 device.brightness_pct = float(control["dimmable"])
                 device.is_on = control["dimmable"] > 0
+            if "gotoLastActive" in control:
+                # Target level unknown up front; a poll/ws update fills it in.
+                device.is_on = True
+            if "dimmableWithFade" in control:
+                dim_value = control["dimmableWithFade"].get("dimValue")
+                if dim_value is not None:
+                    device.brightness_pct = float(dim_value)
+                    device.is_on = dim_value > 0
             if "colorKelvin" in control and device.supports_color_temp:
                 device.color_temp_kelvin = round(control["colorKelvin"])
         self.async_set_updated_data(self.data)
