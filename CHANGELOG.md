@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-beta-10] - 2026-06-17
+
+### Fixed
+- The bottom of a floored lamp's slider now reads **1%** instead of **0%**.
+  A lamp at its physical minimum was mapped to HA brightness 1, which the
+  frontend renders as "0%", while the slider only lets you set down to 1% —
+  confusingly inconsistent. The physical minimum now maps to HA's brightness
+  for 1%, so display and lowest settable value agree.
+
 ## [0.2.0-beta-9] - 2026-06-17
 
 ### Added
@@ -335,7 +344,8 @@ Fork: project renamed to **DALI-2 IoT4 integration** with full multi-line suppor
 - Push button (iT1) state now correctly returns to "off" after short press events
 - Improved binary sensor state handling for momentary vs maintained buttons
 
-[Unreleased]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-9...HEAD
+[Unreleased]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-10...HEAD
+[0.2.0-beta-10]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-9...v0.2.0-beta-10
 [0.2.0-beta-9]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-8...v0.2.0-beta-9
 [0.2.0-beta-8]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-7...v0.2.0-beta-8
 [0.2.0-beta-7]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-6...v0.2.0-beta-7

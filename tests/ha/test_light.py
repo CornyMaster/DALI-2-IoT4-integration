@@ -111,9 +111,10 @@ async def test_brightness_remaps_to_physical_minimum(
     body = mock_gateway.requests[("POST", URL(f"{BASE}/device/24/control"))][-1]
     assert body.kwargs["json"]["dimmable"] == pytest.approx(85 / 254 * 100)
 
-    # read path: a level at the floor shows as HA brightness 1, max as 255
+    # read path: a level at the floor shows as HA brightness 3 (= 1%), max 255
     device.brightness_pct = 85 / 254 * 100
-    assert light.brightness == 1
+    assert light.brightness == 3
+    assert round(light.brightness / 255 * 100) == 1
     device.brightness_pct = 100.0
     assert light.brightness == 255
 

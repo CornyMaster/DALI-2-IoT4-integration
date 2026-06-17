@@ -10,10 +10,6 @@ from custom_components.lunatone_dali2_iot4.brightness import (
 L = 254  # DALI max level
 
 
-def lvl(pct):
-    return pct / 100 * L
-
-
 def test_identity_when_no_floor():
     # phys_min 1 (or unknown) -> plain linear mapping, unchanged behavior
     assert to_pct(128, 1) == 50
@@ -23,17 +19,18 @@ def test_identity_when_no_floor():
 
 
 def test_endpoints_with_floor_85():
-    # level 85 -> HA 1 (lowest on), level 254 -> HA 255 (100%)
-    assert to_pct(1, 85) == pytest.approx(85 / L * 100)      # HA 1 -> level 85
+    # level 85 -> HA 3 (lowest on = "1%"), level 254 -> HA 255 (100%)
+    assert to_pct(3, 85) == pytest.approx(85 / L * 100)      # HA 3 -> level 85
     assert to_pct(255, 85) == pytest.approx(100.0)            # HA 255 -> level 254
-    assert to_ha(85 / L * 100, 85) == 1                       # level 85 -> HA 1
+    assert to_ha(85 / L * 100, 85) == 3                       # level 85 -> HA 3 (1%)
     assert to_ha(100.0, 85) == 255                            # level 254 -> HA 255
 
 
-def test_below_floor_reads_as_one():
-    # a (transient) reported level below the physical minimum clamps to HA 1
-    assert to_ha(lvl(50) / L * 100 * 0 + 0.787, 85) == 1     # ~level 2 -> 1
-    assert to_ha(10.0, 85) == 1                               # level ~25 < 85 -> 1
+def test_floor_reads_as_one_percent():
+    # the floor and anything (transiently) below it read as HA 3 = "1%", never 0%
+    assert round(to_ha(85 / L * 100, 85) / 255 * 100) == 1   # renders as 1%
+    assert to_ha(0.787, 85) == 3                              # ~level 2 -> floor
+    assert to_ha(10.0, 85) == 3                               # level ~25 < 85 -> floor
 
 
 def test_off_stays_off():
