@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-beta-8] - 2026-06-17
+
 ### Added
 - **Per-lamp/group "turn-on behavior".** When a light, group or broadcast line
   is switched on in HA *without* an explicit brightness, it now goes to its
@@ -318,7 +320,8 @@ Fork: project renamed to **DALI-2 IoT4 integration** with full multi-line suppor
 - Push button (iT1) state now correctly returns to "off" after short press events
 - Improved binary sensor state handling for momentary vs maintained buttons
 
-[Unreleased]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-7...HEAD
+[Unreleased]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-8...HEAD
+[0.2.0-beta-8]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-7...v0.2.0-beta-8
 [0.2.0-beta-7]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-6...v0.2.0-beta-7
 [0.2.0-beta-6]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-5...v0.2.0-beta-6
 [0.2.0-beta-5]: https://github.com/CornyMaster/DALI-2-IoT4-integration/compare/v0.2.0-beta-4...v0.2.0-beta-5
