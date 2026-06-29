@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-beta-14] - 2026-06-29
+
+### Fixed
+- Input devices whose memory-bank-2 description is empty or unreadable now fall
+  back to a stable "Line L Input A" name instead of staying blank; manual
+  renames are preserved.
+
 ## [0.2.0-beta-13] - 2026-06-29
 
 ### Fixed
