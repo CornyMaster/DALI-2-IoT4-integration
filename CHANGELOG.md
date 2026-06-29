@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Brand icon and logo for the integration (DALI-2 wordmark with the Lunatone
   crescent), shipped locally in `custom_components/lunatone_dali2_iot4/brand/`
   with light and dark variants in 256/512 px (supported natively from HA 2026.3).
+- Switch Manager blueprint for DALI-2 MC push-button couplers
+  (`switch_manager/lunatone-dali2-mc.yaml` + image) and a setup guide
+  (`docs/SWITCH_MANAGER.md`).
 
 ## [0.2.0-beta-11] - 2026-06-29
 

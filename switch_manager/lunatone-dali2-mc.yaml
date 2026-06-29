@@ -1,0 +1,142 @@
+name: DALI-2 MC
+service: Lunatone DALI-2
+event_type: lunatone_dali2_iot4_event
+identifier_key: device_address
+info: >
+  Lunatone DALI-2 MC 4-input push-button coupler (T1-T4 = instance 0-3, COM is
+  common only). Bind one coupler per switch via its DALI address. For the same
+  address on multiple lines, add a switch variable "line" and a root condition
+  key: line. Coupler timers: short 500 ms, double off by default, repeat
+  160 ms, stuck 20 s. Enable "Double press" on the coupler to use press 2x.
+conditions:
+  - key: instance_type
+    value: 1
+buttons:
+  - x: 60
+    y: 40
+    width: 90
+    height: 90
+    conditions:
+      - key: instance
+        value: 0
+    actions:
+      - title: press
+        conditions:
+          - key: event_type
+            value: short_press
+      - title: press 2x
+        conditions:
+          - key: event_type
+            value: double_press
+      - title: hold
+        conditions:
+          - key: event_type
+            value: long_press_start
+      - title: hold repeat
+        conditions:
+          - key: event_type
+            value: long_press_repeat
+      - title: hold (released)
+        conditions:
+          - key: event_type
+            value: long_press_stop
+      - title: stuck
+        conditions:
+          - key: event_type
+            value: button_stuck
+  - x: 170
+    y: 40
+    width: 90
+    height: 90
+    conditions:
+      - key: instance
+        value: 1
+    actions:
+      - title: press
+        conditions:
+          - key: event_type
+            value: short_press
+      - title: press 2x
+        conditions:
+          - key: event_type
+            value: double_press
+      - title: hold
+        conditions:
+          - key: event_type
+            value: long_press_start
+      - title: hold repeat
+        conditions:
+          - key: event_type
+            value: long_press_repeat
+      - title: hold (released)
+        conditions:
+          - key: event_type
+            value: long_press_stop
+      - title: stuck
+        conditions:
+          - key: event_type
+            value: button_stuck
+  - x: 60
+    y: 170
+    width: 90
+    height: 90
+    conditions:
+      - key: instance
+        value: 2
+    actions:
+      - title: press
+        conditions:
+          - key: event_type
+            value: short_press
+      - title: press 2x
+        conditions:
+          - key: event_type
+            value: double_press
+      - title: hold
+        conditions:
+          - key: event_type
+            value: long_press_start
+      - title: hold repeat
+        conditions:
+          - key: event_type
+            value: long_press_repeat
+      - title: hold (released)
+        conditions:
+          - key: event_type
+            value: long_press_stop
+      - title: stuck
+        conditions:
+          - key: event_type
+            value: button_stuck
+  - x: 170
+    y: 170
+    width: 90
+    height: 90
+    conditions:
+      - key: instance
+        value: 3
+    actions:
+      - title: press
+        conditions:
+          - key: event_type
+            value: short_press
+      - title: press 2x
+        conditions:
+          - key: event_type
+            value: double_press
+      - title: hold
+        conditions:
+          - key: event_type
+            value: long_press_start
+      - title: hold repeat
+        conditions:
+          - key: event_type
+            value: long_press_repeat
+      - title: hold (released)
+        conditions:
+          - key: event_type
+            value: long_press_stop
+      - title: stuck
+        conditions:
+          - key: event_type
+            value: button_stuck
