@@ -24,7 +24,7 @@ _LOGGER = logging.getLogger(__name__)
 
 SOURCE_DIR = Path(__file__).parent / "blueprints"
 HASHES_FILE = SOURCE_DIR / "known_hashes.json"
-TARGET_REL = "custom_components/switch_manager/blueprints"
+TARGET_REL = "blueprints/switch_manager"
 
 
 def _sha256(path: Path) -> str:
