@@ -17,6 +17,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 from .coordinator import (
     LunatoneCoordinator,
+    broadcast_device_identifier,
     gear_device_identifier,
     group_device_identifier,
 )
@@ -105,8 +106,10 @@ def _device_info_for(
             via_device=(DOMAIN, entry.entry_id),
         )
     return DeviceInfo(
-        identifiers={(DOMAIN, f"{entry.entry_id}_broadcast")},
-        name="DALI Broadcast",
+        identifiers={
+            (DOMAIN, broadcast_device_identifier(entry.entry_id, target.line))
+        },
+        name=f"Line {target.line} Broadcast",
         model="DALI Broadcast Controller",
         manufacturer="Lunatone",
         via_device=(DOMAIN, entry.entry_id),

@@ -34,6 +34,7 @@ from .const import (
 )
 from .coordinator import (
     LunatoneCoordinator,
+    broadcast_device_identifier,
     gear_device_identifier,
     group_device_identifier,
     input_device_identifier,
@@ -151,6 +152,17 @@ async def async_setup_entry(
         },
         "async_set_scene_level",
     )
+
+
+def _aggregate_is_on(members: list[LunatoneDevice]) -> bool | None:
+    """On if any member is on; unknown (None) if all members are unknown."""
+    if not members:
+        return None
+    if any(device.is_on is True for device in members):
+        return True
+    if all(device.is_on is None for device in members):
+        return None
+    return False
 
 
 def _color_modes_for(devices: list[LunatoneDevice]) -> tuple[set[ColorMode], ColorMode]:
@@ -393,10 +405,7 @@ class LunatoneGroupLight(CoordinatorEntity[LunatoneCoordinator], LightEntity):
 
     @property
     def is_on(self) -> bool | None:
-        members = self._members()
-        if not members:
-            return None
-        return any(device.is_on for device in members)
+        return _aggregate_is_on(self._members())
 
     def _phys_min(self) -> int:
         """Group floor = the most restrictive member physical minimum."""
@@ -511,8 +520,10 @@ class LunatoneBroadcastLight(CoordinatorEntity[LunatoneCoordinator], LightEntity
             self._attr_name = f"Line {line} Broadcast"
         self._update_capabilities()
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"{entry.entry_id}_broadcast")},
-            name="DALI Broadcast",
+            identifiers={
+                (DOMAIN, broadcast_device_identifier(entry.entry_id, line))
+            },
+            name="DALI Broadcast" if line is None else f"Line {line} Broadcast",
             model="DALI Broadcast Controller",
             manufacturer="Lunatone",
             via_device=(DOMAIN, entry.entry_id),
@@ -546,10 +557,7 @@ class LunatoneBroadcastLight(CoordinatorEntity[LunatoneCoordinator], LightEntity
 
     @property
     def is_on(self) -> bool | None:
-        members = self._members()
-        if not members:
-            return None
-        return any(device.is_on for device in members)
+        return _aggregate_is_on(self._members())
 
     def _phys_min(self) -> int:
         return max(

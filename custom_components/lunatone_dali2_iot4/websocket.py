@@ -22,6 +22,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -196,7 +197,9 @@ class LunatoneWsListener:
             if num_bits != 24:
                 return
             line = payload.get("line", 0)
-            timestamp = payload.get("timestamp", 0.0)
+            timestamp = payload.get("timestamp")
+            if not isinstance(timestamp, (int, float)):
+                timestamp = time.monotonic()
             if self._is_duplicate(line, dali_data, timestamp):
                 return
             event = decode_dali2_frame(line, dali_data)

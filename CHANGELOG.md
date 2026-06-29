@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-beta-11] - 2026-06-29
+
+### Fixed
+- **Each broadcast is now its own device.** Per-line broadcasts (and the
+  optional all-lines broadcast) no longer share a single "DALI Broadcast"
+  device; each line gets its own device, plus a separate all-lines device.
+  Existing entries are migrated to entry version 3 — entities keep their IDs
+  and history, and the old shared broadcast device is removed automatically.
+- **Group/broadcast lights report `unknown` instead of `off`** while all
+  members are still unknown (e.g. before the first poll).
+- **Services are multi-gateway safe.** `rescan_devices`, `set_feedback_led`
+  and `refresh_input_names` reach every configured gateway and are removed when
+  the last entry is unloaded.
+- Momentary button resets are tied to the latest press, so rapid taps are not
+  cut short.
+- Monitor frames without a timestamp use a monotonic clock for de-duplication.
+
 ## [0.2.0-beta-10] - 2026-06-17
 
 ### Fixed

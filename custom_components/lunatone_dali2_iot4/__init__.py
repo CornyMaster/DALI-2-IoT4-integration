@@ -100,27 +100,35 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "lunatone_physical_minimums",
     )
 
+    def _all_coordinators() -> list[LunatoneCoordinator]:
+        return [
+            data[DATA_COORDINATOR] for data in hass.data.get(DOMAIN, {}).values()
+        ]
+
     async def handle_rescan_devices(call: ServiceCall) -> None:
         """Trigger the gateway's own scan (never re-addresses the bus)."""
         _LOGGER.info("Starting gateway device scan")
-        await client.async_start_scan()
-        await coordinator.async_request_refresh()
-        # Pick up scenes configured since startup -> new scene switches.
-        await coordinator.async_refresh_all_scenes()
-        # Newly discovered devices need their physical minimum read too.
-        await coordinator.async_refresh_physical_minimums()
+        for coord in _all_coordinators():
+            await coord.client.async_start_scan()
+            await coord.async_request_refresh()
+            # Pick up scenes configured since startup -> new scene switches.
+            await coord.async_refresh_all_scenes()
+            # Newly discovered devices need their physical minimum read too.
+            await coord.async_refresh_physical_minimums()
 
     async def handle_set_feedback_led(call: ServiceCall) -> None:
-        await coordinator.async_set_feedback_led(
-            call.data["line"],
-            call.data["address"],
-            call.data["instance"],
-            call.data["state"],
-        )
+        for coord in _all_coordinators():
+            await coord.async_set_feedback_led(
+                call.data["line"],
+                call.data["address"],
+                call.data["instance"],
+                call.data["state"],
+            )
 
     async def handle_refresh_input_names(call: ServiceCall) -> None:
         """Re-read input-device names from the bus (repairs corrupt names)."""
-        await coordinator.async_refresh_input_names()
+        for coord in _all_coordinators():
+            await coord.async_refresh_input_names()
 
     if not hass.services.has_service(DOMAIN, SERVICE_RESCAN):
         hass.services.async_register(DOMAIN, SERVICE_RESCAN, handle_rescan_devices)
@@ -146,14 +154,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Migrate old config entries to version 2 (REST-based, line-aware)."""
-    if entry.version > 2:
+    """Migrate old config entries to the current version."""
+    if entry.version > 3:
         return False
     if entry.version < 2:
         # v1 options (background polling / scan-on-startup) are obsolete;
         # line selection and the new defaults come from the options flow.
         hass.config_entries.async_update_entry(entry, options={}, version=2)
         _LOGGER.info("Migrated config entry %s to version 2", entry.entry_id)
+    if entry.version < 3:
+        # Broadcast lights moved from one shared device to one device per line.
+        # Drop the now-orphaned combined device so it does not linger empty.
+        registry = dr.async_get(hass)
+        old = registry.async_get_device(
+            identifiers={(DOMAIN, f"{entry.entry_id}_broadcast")}
+        )
+        if old:
+            registry.async_remove_device(old.id)
+        hass.config_entries.async_update_entry(entry, version=3)
+        _LOGGER.info("Migrated config entry %s to version 3", entry.entry_id)
     return True
 
 
@@ -182,4 +201,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         data = hass.data[DOMAIN].pop(entry.entry_id)
         ws_listener: LunatoneWsListener = data[DATA_WS_LISTENER]
         await ws_listener.async_stop()
+        # Services are shared by all entries; drop them with the last one.
+        if not hass.data[DOMAIN]:
+            for service in (
+                SERVICE_RESCAN,
+                SERVICE_SET_FEEDBACK_LED,
+                SERVICE_REFRESH_INPUT_NAMES,
+            ):
+                hass.services.async_remove(DOMAIN, service)
     return unload_ok

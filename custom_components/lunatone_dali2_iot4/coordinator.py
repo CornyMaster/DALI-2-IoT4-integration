@@ -92,6 +92,13 @@ def scene_device_identifier(entry_id: str, line: int, scene: int) -> str:
     return f"{entry_id}_line{line}_scene{scene}"
 
 
+def broadcast_device_identifier(entry_id: str, line: int | None) -> str:
+    """Registry identifier for a broadcast target (one line, or all lines)."""
+    if line is None:
+        return f"{entry_id}_broadcast_all"
+    return f"{entry_id}_line{line}_broadcast"
+
+
 class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
     """Polls the REST inventory and merges websocket push events."""
 
@@ -701,8 +708,20 @@ class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
     async def _async_reset_momentary_state(
         self, instance: InputInstance, event: InputEvent
     ) -> None:
-        """Reset a binary sensor shortly after a momentary button event."""
+        """Reset a binary sensor shortly after a momentary button event.
+
+        A newer press on the same instance starts its own reset; only the
+        latest one is allowed to clear the state, so rapid repeats are not cut
+        short by an earlier timer.
+        """
+        if not hasattr(self, "_momentary_seq"):
+            self._momentary_seq = {}
+        key = (event.line, event.address, event.instance)
+        token = self._momentary_seq.get(key, 0) + 1
+        self._momentary_seq[key] = token
         await asyncio.sleep(MOMENTARY_RESET_DELAY)
+        if self._momentary_seq.get(key) != token:
+            return  # a newer event arrived; let its timer handle the reset
         if instance.event_type in MOMENTARY_EVENTS:
             instance.state = False
             if self.data:

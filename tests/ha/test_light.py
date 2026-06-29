@@ -195,11 +195,26 @@ async def test_group_state_aggregates_members(coordinator, config_entry):
     assert group.brightness == round(40 / 100 * 255)
 
 
+async def test_group_is_on_unknown_when_all_members_unknown(coordinator, config_entry):
+    group = LunatoneGroupLight(coordinator, config_entry, 0, 0)
+    for device in group._members():
+        device.is_on = None
+    assert group.is_on is None
+    group._members()[0].is_on = True
+    assert group.is_on is True
+
+
 async def test_broadcast_per_line_and_global(coordinator, config_entry, mock_gateway):
     line_broadcast = LunatoneBroadcastLight(coordinator, config_entry, 1)
     global_broadcast = LunatoneBroadcastLight(coordinator, config_entry, None)
     assert line_broadcast.unique_id == f"{config_entry.entry_id}_line1_broadcast"
     assert global_broadcast.unique_id == f"{config_entry.entry_id}_broadcast_all"
+    # each broadcast is its own HA device (per-line, plus all-lines)
+    ids_line = line_broadcast.device_info["identifiers"]
+    ids_global = global_broadcast.device_info["identifiers"]
+    assert ids_line == {("lunatone_dali2_iot4", f"{config_entry.entry_id}_line1_broadcast")}
+    assert ids_global == {("lunatone_dali2_iot4", f"{config_entry.entry_id}_broadcast_all")}
+    assert ids_line != ids_global
 
     mock_gateway.post(f"{BASE}/broadcast/control?_line=1", payload={})
     await line_broadcast.async_turn_off()

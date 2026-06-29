@@ -64,7 +64,7 @@ async def _fetch_gateway_info(
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Lunatone DALI-2 IoT."""
 
-    VERSION = 2
+    VERSION = 3
 
     def __init__(self) -> None:
         self._host: str | None = None
