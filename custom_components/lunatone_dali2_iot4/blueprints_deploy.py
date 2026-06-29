@@ -33,9 +33,13 @@ def _sha256(path: Path) -> str:
 
 def _deploy(config_dir: str, force: bool) -> int:
     """Copy bundled blueprints into the Switch Manager folder. Executor-only."""
-    target = Path(config_dir) / TARGET_REL
-    if not target.is_dir():
-        return -1  # Switch Manager not installed
+    cfg = Path(config_dir)
+    # Switch Manager installed? (HACS custom component). Its user blueprints go
+    # to config/blueprints/switch_manager (created here if missing).
+    if not (cfg / "custom_components" / "switch_manager").is_dir():
+        return -1
+    target = cfg / TARGET_REL
+    target.mkdir(parents=True, exist_ok=True)
     try:
         known = json.loads(HASHES_FILE.read_text()) if HASHES_FILE.exists() else {}
     except (OSError, ValueError):
