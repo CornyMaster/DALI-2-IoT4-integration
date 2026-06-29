@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="300" viewBox="0 0 320 300" role="img" aria-label="DALI-2 MC T1-T4">
+  <rect width="320" height="300" fill="#FFFFFF"/>
+  <rect x="40" y="20" width="240" height="250" rx="22" fill="#F2F4F7" stroke="#C7CDD6" stroke-width="3"/>
+  <g fill="#FFFFFF" stroke="#9AA3B2" stroke-width="3">
+    <rect x="60"  y="40"  width="90" height="90" rx="14"/>
+    <rect x="170" y="40"  width="90" height="90" rx="14"/>
+    <rect x="60"  y="170" width="90" height="90" rx="14"/>
+    <rect x="170" y="170" width="90" height="90" rx="14"/>
+  </g>
+  <g fill="#4A5366" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="34" text-anchor="middle">
+    <text x="105" y="97">T1</text>
+    <text x="215" y="97">T2</text>
+    <text x="105" y="227">T3</text>
+    <text x="215" y="227">T4</text>
+  </g>
+</svg>

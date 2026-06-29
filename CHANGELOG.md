@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Switch Manager blueprint for DALI-2 MC push-button couplers
   (`switch_manager/lunatone-dali2-mc.yaml` + image) and a setup guide
   (`docs/SWITCH_MANAGER.md`).
+- Bundled Switch Manager blueprint is auto-deployed to
+  `config/blueprints/switch_manager/` when Switch Manager is installed, plus a
+  "Deploy Switch Manager Blueprints" button for manual (re)deploy.
+  Updates are hash-tracked so old bundled copies refresh while user edits are
+  kept; a force button overwrites unconditionally.
 
 ## [0.2.0-beta-11] - 2026-06-29
 

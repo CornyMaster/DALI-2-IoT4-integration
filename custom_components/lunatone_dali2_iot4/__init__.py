@@ -12,6 +12,7 @@ from homeassistant.helpers import config_validation as cv, device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import LunatoneApiError, LunatoneRestClient
+from .blueprints_deploy import async_deploy_switch_manager_blueprints
 from .const import (
     CONF_HOST,
     CONF_PORT,
@@ -91,6 +92,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_update_options))
+
+    # Auto-deploy the bundled Switch Manager blueprint if Switch Manager is
+    # installed (no-op otherwise; never overwrites user-edited files).
+    await async_deploy_switch_manager_blueprints(hass)
 
     # Read each driver's physical minimum dim level in the background so the
     # light slider can span the lamp's usable range (read-only DALI queries).

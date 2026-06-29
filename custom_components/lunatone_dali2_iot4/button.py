@@ -6,10 +6,11 @@ import logging
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import LunatoneApiError
+from .blueprints_deploy import async_deploy_switch_manager_blueprints
 from .const import DATA_COORDINATOR, DOMAIN
 from .coordinator import LunatoneCoordinator
 
@@ -28,6 +29,8 @@ async def async_setup_entry(
     buttons: list[ButtonEntity] = [GatewayScanButton(coordinator, config_entry)]
     if coordinator.track_inputs:
         buttons.append(RefreshInputNamesButton(coordinator, config_entry))
+    buttons.append(DeployBlueprintsButton(config_entry))
+    buttons.append(DeployBlueprintsButton(config_entry, force=True))
     async_add_entities(buttons)
 
 
@@ -84,3 +87,34 @@ class RefreshInputNamesButton(ButtonEntity):
 
     async def async_press(self) -> None:
         await self._coordinator.async_refresh_input_names()
+
+
+class DeployBlueprintsButton(ButtonEntity):
+    """Deploy bundled Switch Manager blueprints.
+
+    Default keeps user-edited files (only updates missing or known-old bundled
+    copies); the force variant overwrites the deployed copies unconditionally.
+    """
+
+    _attr_icon = "mdi:file-export"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, config_entry: ConfigEntry, force: bool = False) -> None:
+        self._force = force
+        suffix = "deploy_blueprints_force" if force else "deploy_blueprints"
+        self._attr_name = (
+            "Deploy Switch Manager Blueprints (Force)"
+            if force
+            else "Deploy Switch Manager Blueprints"
+        )
+        self._attr_unique_id = f"{config_entry.entry_id}_{suffix}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, config_entry.entry_id)},
+        )
+
+    async def async_press(self) -> None:
+        n = await async_deploy_switch_manager_blueprints(self.hass, force=self._force)
+        if n < 0:
+            _LOGGER.warning("Switch Manager not installed; nothing deployed")
+        else:
+            _LOGGER.info("Deployed %d Switch Manager blueprint file(s)", n)
