@@ -666,29 +666,38 @@ class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
                 err,
             )
             description = None
+        fallback = f"Line {device.line} Input {device.address}"
+        name = description or fallback
+        device.name = name
         if description:
-            device.name = description
             _LOGGER.info(
                 "Input device line %d address %d is named '%s'",
                 device.line,
                 device.address,
                 description,
             )
-            # entities may already exist with the default name; update the
-            # registry unless the user renamed the device manually
-            registry = dr.async_get(self.hass)
-            entry = registry.async_get_device(
-                identifiers={
-                    (
-                        DOMAIN,
-                        input_device_identifier(
-                            self.entry.entry_id, device.line, device.address
-                        ),
-                    )
-                }
+        else:
+            _LOGGER.debug(
+                "No description for input line %d address %d; using '%s'",
+                device.line,
+                device.address,
+                fallback,
             )
-            if entry and not entry.name_by_user:
-                registry.async_update_device(entry.id, name=description)
+        # entities may already exist with the default name; update the
+        # registry unless the user renamed the device manually
+        registry = dr.async_get(self.hass)
+        entry = registry.async_get_device(
+            identifiers={
+                (
+                    DOMAIN,
+                    input_device_identifier(
+                        self.entry.entry_id, device.line, device.address
+                    ),
+                )
+            }
+        )
+        if entry and not entry.name_by_user:
+            registry.async_update_device(entry.id, name=name)
         await self._store.async_save(self._inputs)
         if self.data:
             self.async_set_updated_data(self.data)
