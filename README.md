@@ -113,7 +113,7 @@ last active level. Restored across restarts.
 
 A blueprint for the **DALI-2 MC** 4-button coupler ships in
 `switch_manager/`. With [Switch Manager](https://github.com/Sian-Lee-SA/Home-Assistant-Switch-Manager)
-installed it is auto-deployed to `config/blueprints/switch_manager/` (user edits
+installed it is auto-deployed to `custom_components/switch_manager/blueprints/` (user edits
 are kept; force via the deploy button). See [docs/SWITCH_MANAGER.md](docs/SWITCH_MANAGER.md).
 
 ## Configuration

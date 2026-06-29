@@ -19,9 +19,10 @@ instead of cluttering your automations. A ready-made blueprint is bundled in
 The blueprint + image ship with the integration
 (`custom_components/lunatone_dali2_iot4/blueprints/`). When Switch Manager is
 installed, the integration **auto-deploys** them to
-`config/blueprints/switch_manager/` on setup/update (it never overwrites files
-you changed). To re-copy the originals manually, press the **Deploy Switch
-Manager Blueprints** button on the gateway device, then `switch_manager.reload`.
+`custom_components/switch_manager/blueprints/` on setup/update (it never
+overwrites files you changed). To re-copy the originals manually, press the
+**Deploy Switch Manager Blueprints** button on the gateway device, then
+`switch_manager.reload`.
 Updates are safe: only missing files and known previous bundled versions are
 refreshed (tracked via `known_hashes.json`), so edited copies are left alone.
 Use **Deploy Switch Manager Blueprints (Force)** to overwrite unconditionally.

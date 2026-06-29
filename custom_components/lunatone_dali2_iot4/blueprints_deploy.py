@@ -24,7 +24,7 @@ _LOGGER = logging.getLogger(__name__)
 
 SOURCE_DIR = Path(__file__).parent / "blueprints"
 HASHES_FILE = SOURCE_DIR / "known_hashes.json"
-TARGET_REL = "blueprints/switch_manager"
+TARGET_REL = "custom_components/switch_manager/blueprints"
 
 
 def _sha256(path: Path) -> str:
@@ -34,8 +34,7 @@ def _sha256(path: Path) -> str:
 def _deploy(config_dir: str, force: bool) -> int:
     """Copy bundled blueprints into the Switch Manager folder. Executor-only."""
     cfg = Path(config_dir)
-    # Switch Manager installed? (HACS custom component). Its user blueprints go
-    # to config/blueprints/switch_manager (created here if missing).
+    # Switch Manager installed? Its blueprints live in the component folder.
     if not (cfg / "custom_components" / "switch_manager").is_dir():
         return -1
     target = cfg / TARGET_REL
