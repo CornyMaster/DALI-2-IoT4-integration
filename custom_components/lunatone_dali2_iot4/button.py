@@ -118,3 +118,5 @@ class DeployBlueprintsButton(ButtonEntity):
             _LOGGER.warning("Switch Manager not installed; nothing deployed")
         else:
             _LOGGER.info("Deployed %d Switch Manager blueprint file(s)", n)
+            if self.hass.services.has_service("switch_manager", "reload"):
+                await self.hass.services.async_call("switch_manager", "reload")

@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-beta-16] - 2026-06-29
+
+### Fixed
+- Blueprints now deploy to `config/blueprints/switch_manager/` (where Switch
+  Manager loads them), and the deploy buttons trigger `switch_manager.reload`
+  so the updated blueprint is picked up immediately.
+
 ## [0.2.0-beta-15] - 2026-06-29
 
 ### Added
