@@ -612,6 +612,9 @@ class LunatoneCoordinator(DataUpdateCoordinator[LunatoneData]):
                 DALI_EVENT,
                 {
                     "device_id": ha_device.id if ha_device else None,
+                    "switch_uid": input_device_identifier(
+                        self.entry.entry_id, event.line, event.address
+                    ),
                     "type": event_type,
                     "line": event.line,
                     "device_address": event.address,

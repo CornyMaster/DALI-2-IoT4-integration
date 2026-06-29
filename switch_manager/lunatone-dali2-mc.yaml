@@ -1,7 +1,7 @@
 name: DALI-2 MC
 service: Lunatone DALI-2
 event_type: lunatone_dali2_iot4_event
-identifier_key: device_address
+identifier_key: switch_uid
 info: >
   Lunatone DALI-2 MC 4-input push-button coupler (T1-T4 = instance 0-3, COM is
   common only). Bind one coupler per switch via its DALI address. For the same
