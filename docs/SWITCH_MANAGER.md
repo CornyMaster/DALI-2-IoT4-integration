@@ -51,6 +51,6 @@ apart. If the same address exists on different lines, add a switch variable
 ## Notes
 
 - Enable **Double press** on the coupler (DALI config) if you want `press 2x`;
-  it is off by default.
+  it may be off by default.
 - Couplers are discovered after the first button press; ensure *Track inputs*
   stays enabled in the integration options.

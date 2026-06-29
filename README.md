@@ -7,11 +7,23 @@
 Home Assistant custom integration for the **Lunatone DALI-2 IoT4 gateway**
 (multi-line) and the classic single-line DALI-2 IoT gateway.
 
-This is a fork of [Martsola/dali-lunatone-integration](https://github.com/Martsola/dali-lunatone-integration),
-rewritten around the gateway's REST API to properly support **multiple DALI
-lines**. The original integration was built for the single-line gateway:
-DALI short addresses (0–63) and groups (0–15) repeat on every line, so on an
-IoT4 the original entities collided and all commands went to line 0 only.
+Built around the gateway's REST API to properly support **multiple DALI lines**.
+DALI short addresses (0–63) and groups (0–15) repeat on every line, so single-
+line designs collide on an IoT4 and send all commands to line 0; this
+integration is line-aware end to end.
+
+## Features
+
+✅ **Multi-line aware** — IoT4 with up to 4 DALI lines; line-safe addressing, no collisions
+✅ **REST inventory + live state** — `GET /devices` is the source of truth, no integration-side bus scan
+✅ **Realtime via websocket** — status pushes and DALI-2 input events (buttons, occupancy, light sensors) with their line
+✅ **Lights** — devices, groups, per-line and all-lines broadcast; on/off, brightness, color temperature
+✅ **Usable-range brightness** — slider mapped onto each driver's physical minimum (`QUERY PHYSICAL MINIMUM`)
+✅ **Turn-on behavior** — per lamp/group/broadcast: last active, maximum or fixed level with fade
+✅ **DALI scenes** — native `scene.*` per line, recall/store, member levels as attributes
+✅ **Buttons & sensors** — binary sensors, illuminance, feedback LEDs; device triggers per instance
+✅ **Switch Manager ready** — bundled blueprint auto-deploys for DALI-2 MC couplers
+✅ **Brand assets** — local icon/logo, light + dark
 
 ## How it works
 
@@ -84,6 +96,26 @@ exposes its **member lamps and their stored levels** as attributes.
   greyed out) — that editor only edits scenes defined in `scenes.yaml`/storage.
   This is normal for integration-provided scenes (Hue, deCONZ, …).
 
+## Brightness (physical minimum)
+
+Many LED drivers cannot dim below a hardware minimum. The slider is
+mapped onto each lamp's usable range: physical minimum → 1%, full output → 100%.
+Drivers without a floor are unchanged; groups use the most restrictive member.
+
+## Turn-on behavior
+
+Each dimmable lamp/group/broadcast gets config entities: a **select** (Last
+active level / Maximum / Fixed value) and **numbers** for fixed brightness and
+fade time. Switching on without a brightness follows that choice; defaults to
+last active level. Restored across restarts.
+
+## Switch Manager (DALI buttons)
+
+A blueprint for the **DALI-2 MC** 4-button coupler ships in
+`switch_manager/`. With [Switch Manager](https://github.com/Sian-Lee-SA/Home-Assistant-Switch-Manager)
+installed it is auto-deployed to `config/blueprints/switch_manager/` (user edits
+are kept; force via the deploy button). See [docs/SWITCH_MANAGER.md](docs/SWITCH_MANAGER.md).
+
 ## Configuration
 
 1. Add the integration and enter the gateway host (and port).
@@ -112,7 +144,7 @@ tracking of DALI-2 input devices (buttons/sensors).
 
 ## Requirements
 
-- Lunatone DALI-2 IoT or IoT4 gateway, firmware 1.14.1+ (tested on 1.18.1)
+- Lunatone DALI-2 IoT or IoT4 gateway, firmware 1.14.1+
 - Home Assistant 2024.8 or newer
 
 ## Installation
@@ -153,3 +185,7 @@ pytest tests/ha
 
 Tests against a real gateway are strictly read-only (GET + passive websocket
 listening); control paths are tested against mocks.
+
+---
+
+Made for the Home Assistant community. Licensed under MIT.
