@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-beta-13] - 2026-06-29
+
+### Fixed
+- Switch Manager blueprint auto-deploy now detects Switch Manager by its
+  component and copies into `custom_components/switch_manager/blueprints/`,
+  fixing deployment that did nothing on real installs.
+
 ## [0.2.0-beta-12] - 2026-06-29
 
 ### Added
