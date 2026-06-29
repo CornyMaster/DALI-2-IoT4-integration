@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-beta-17] - 2026-06-29
+
+### Added
+- When a deployed Switch Manager blueprint was changed (so its hash is
+  unknown), the integration keeps it and raises a dismissible notification
+  suggesting the force deploy button. The notice only reappears after a new
+  blueprint version is shipped, so it does not nag.
+
 ## [0.2.0-beta-16] - 2026-06-29
 
 ### Fixed
