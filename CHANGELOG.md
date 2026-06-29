@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Brand icon and logo for the integration (DALI-2 wordmark with the Lunatone
+  crescent), provided as `icon.svg` plus 256/512 px PNGs for the Home Assistant
+  brands repository.
+
 ## [0.2.0-beta-11] - 2026-06-29
 
 ### Fixed
