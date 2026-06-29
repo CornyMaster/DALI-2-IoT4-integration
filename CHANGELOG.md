@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-beta-15] - 2026-06-29
+
+### Added
+- Events carry a stable `switch_uid` (per line+address); the Switch Manager
+  blueprint now identifies couplers by it instead of the ambiguous address.
+
 ## [0.2.0-beta-14] - 2026-06-29
 
 ### Fixed
