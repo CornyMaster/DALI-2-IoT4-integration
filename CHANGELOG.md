@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0-beta-12] - 2026-06-29
+
 ### Added
 - Brand icon and logo for the integration (DALI-2 wordmark with the Lunatone
   crescent), shipped locally in `custom_components/lunatone_dali2_iot4/brand/`
